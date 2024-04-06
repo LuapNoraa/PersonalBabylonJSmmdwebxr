@@ -70,6 +70,8 @@
                     babylonMmdScript.onload = resolve;
                 });
                 BABYLONMMD.SdefInjector.OverrideEngineCreateEffect(engine);
+                const hk = await HavokPhysics();
+                const babylonPlugin =  new BABYLON.HavokPlugin(true, hk);
                 const pmxLoader = BABYLON.SceneLoader.GetPluginForExtension(".pmx");
                 const materialBuilder = pmxLoader.materialBuilder;
                 materialBuilder.loadOutlineRenderingProperties = () => { };
