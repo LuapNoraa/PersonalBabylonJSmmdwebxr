@@ -65,16 +65,25 @@
             static async CreateScene(engine, canvas) {
                 await new Promise((resolve) => {
                     const babylonMmdScript = document.createElement("script");
-                    babylonMmdScript.src = "https://www.unpkg.com/babylon-mmd/umd/babylon.mmd.min.js";
+                    babylonMmdScript.src = "https://www.unpkg.com/babylon-mmd@0.37.2/umd/babylon.mmd.min.js";
                     document.head.appendChild(babylonMmdScript);
                     babylonMmdScript.onload = resolve;
                 });
-                BABYLONMMD.SdefInjector.OverrideEngineCreateEffect(engine);
-                const hk = await HavokPhysics();
-                const babylonPlugin =  new BABYLON.HavokPlugin(true, hk);
                 const pmxLoader = BABYLON.SceneLoader.GetPluginForExtension(".pmx");
                 const materialBuilder = pmxLoader.materialBuilder;
+                materialBuilder.useAlphaEvaluation = false;
                 materialBuilder.loadOutlineRenderingProperties = () => { };
+                const alphaBlendMaterials = ["face02", "Facial02", "HL", "Hairshadow", "q302"];
+                const alphaTestMaterials = ["q301"];
+                materialBuilder.afterBuildSingleMaterial = (material) => {
+                    if (!alphaBlendMaterials.includes(material.name) && !alphaTestMaterials.includes(material.name))
+                        return;
+                    material.transparencyMode = alphaBlendMaterials.includes(material.name)
+                        ? BABYLON.Material.MATERIAL_ALPHABLEND
+                        : BABYLON.Material.MATERIAL_ALPHATEST;
+                    material.useAlphaFromDiffuseTexture = true;
+                    material.diffuseTexture.hasAlpha = true;
+                };
                 const scene = new BABYLON.Scene(engine);
                 scene.clearColor = new BABYLON.Color4(0.95, 0.95, 0.95, 1.0);
                 const mmdCamera = new BABYLONMMD.MmdCamera("MmdCamera", new BABYLON.Vector3(0, 10, 0), scene);
@@ -86,11 +95,11 @@
                 camera.inertia = 0.8;
                 camera.speed = 10;
                 const hemisphericLight = new BABYLON.HemisphericLight("HemisphericLight", new BABYLON.Vector3(0, 1, 0), scene);
-                hemisphericLight.intensity = 0.3;
+                hemisphericLight.intensity = 0.4;
                 hemisphericLight.specular = new BABYLON.Color3(0, 0, 0);
                 hemisphericLight.groundColor = new BABYLON.Color3(1, 1, 1);
                 const directionalLight = new BABYLON.DirectionalLight("DirectionalLight", new BABYLON.Vector3(0.5, -1, 1), scene);
-                directionalLight.intensity = 0.7;
+                directionalLight.intensity = 0.8;
                 directionalLight.autoCalcShadowZBounds = false;
                 directionalLight.autoUpdateExtends = false;
                 directionalLight.shadowMaxZ = 20;
@@ -126,10 +135,8 @@
                 promises.push(BABYLON.SceneLoader.ImportMeshAsync(undefined, "https://noname0310.github.io/web-mmd-viewer/melancholic_night/mmd_public/model/yyb_hatsune_miku_10th_ff/yyb_hatsune_miku_10th_v1.02.pmx", undefined, scene, event => updateLoadingText(1, `Loading model... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`)));
                 promises.push((async () => {
                     updateLoadingText(2, "Loading physics engine...");
-                    const hk = await HavokPhysics();
                     const havokPlugin = new BABYLON.HavokPlugin();
-                    const babylonPlugin =  new BABYLON.HavokPlugin(true, hk);
-                    scene.enablePhysics(new BABYLON.Vector3(0, -98, 0), havokPlugin);
+                    scene.enablePhysics(new BABYLON.Vector3(0, -9.8, 0), havokPlugin);
                     updateLoadingText(2, "Loading physics engine... Done");
                 })());
                 loadingTexts = new Array(promises.length).fill("");
@@ -140,21 +147,19 @@
                 mmdCamera.setAnimation("motion");
                 const modelMesh = loadResults[1].meshes[0];
                 modelMesh.receiveShadows = true;
-                ;
-                for (const mesh of modelMesh.metadata.meshes)
-                    shadowGenerator.addShadowCaster(mesh);
+                shadowGenerator.addShadowCaster(modelMesh);
                 const mmdModel = mmdRuntime.createMmdModel(modelMesh);
                 mmdModel.addAnimation(loadResults[0]);
                 mmdModel.setAnimation("motion");
-                const bodyBone = mmdModel.runtimeBones.find((bone) => bone.name === "センター");
+                const bodyBone = loadResults[1].skeletons[0].bones.find((bone) => bone.name === "センター");
                 scene.onBeforeRenderObservable.add(() => {
-                    bodyBone.getWorldTranslationToRef(directionalLight.position);
+                    bodyBone.getFinalMatrix().getTranslationToRef(directionalLight.position);
                     directionalLight.position.y -= 10;
                 });
                 const ground = BABYLON.MeshBuilder.CreateGround("Ground", { width: 100, height: 100, subdivisions: 2, updatable: false }, scene);
                 ground.receiveShadows = true;
                 const groundMaterial = ground.material = new BABYLON.StandardMaterial("GroundMaterial", scene);
-                groundMaterial.diffuseColor = new BABYLON.Color3(0.7, 0.7, 0.7);
+                groundMaterial.diffuseColor = new BABYLON.Color3(0.65, 0.65, 0.65);
                 groundMaterial.specularPower = 128;
                 const groundReflectionTexture = groundMaterial.reflectionTexture = new BABYLON.MirrorTexture("MirrorTexture", 1024, scene, true);
                 groundReflectionTexture.mirrorPlane = BABYLON.Plane.FromPositionAndNormal(ground.position, ground.getFacetNormal(0).scale(-1));
@@ -176,22 +181,19 @@
                 const guiCamera = new BABYLON.ArcRotateCamera("GUICamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new BABYLON.Vector3(0, 20, 0), scene);
                 guiCamera.layerMask = 0x10000000;
                 scene.activeCameras = [mmdCamera, guiCamera];
-                /* let lastClickTime = -Infinity;
-                canvas.onclick = (): void => {
+                let lastClickTime = -Infinity;
+                canvas.onclick = () => {
                     const currentTime = performance.now();
                     if (500 < currentTime - lastClickTime) {
                         lastClickTime = currentTime;
                         return;
                     }
                     lastClickTime = -Infinity;
-        
-                    if (scene.activeCameras[0] === mmdCamera) scene.activeCameras = [camera, guiCamera];
-                    else scene.activeCameras = [mmdCamera, guiCamera];
-                }; */
-                mmdCamera.viewport = new BABYLON.Viewport(0, 0, 1, 1);
-                camera.viewport = new BABYLON.Viewport(0, 0.75, 0.25, 0.25);
-                scene.activeCameras.push(mmdCamera);
-                scene.activeCameras.push(camera);
+                    if (scene.activeCameras[0] === mmdCamera)
+                        scene.activeCameras = [camera, guiCamera];
+                    else
+                        scene.activeCameras = [mmdCamera, guiCamera];
+                };
                 const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
                 advancedTexture.layer.layerMask = 0x10000000;
                 const textblock = new BABYLON.GUI.TextBlock();
@@ -205,21 +207,13 @@
                 textblock.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
                 textblock.color = "black";
                 advancedTexture.addControl(textblock);
-                
-                var defaultXRExperience = await scene.createDefaultXRExperienceAsync( /* optional configuration options */ );
-                if (!defaultXRExperience.baseExperience) {
-                    // no xr support
-                } else {
-                    // all good, ready to go
-                };
-                
                 return scene;
             }
         }
         createScene = function() { return Playground.CreateScene(engine, engine.getRenderingCanvas()); }
                 window.initFunction = async function() {
                     
-                    
+                    globalThis.HK = await HavokPhysics();
                     
                     var asyncEngineCreation = async function() {
                         try {
