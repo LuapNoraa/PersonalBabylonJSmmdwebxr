@@ -61,34 +61,172 @@
         var scene = null;
         var sceneToRender = null;
         var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
-        var createScene = function () {
-    // This creates a basic Babylon Scene object (non-mesh)
-    var scene = new BABYLON.Scene(engine);
-
-    var camera = new BABYLON.ArcRotateCamera("camera", BABYLON.Tools.ToRadians(90), BABYLON.Tools.ToRadians(65), 10, BABYLON.Vector3.Zero(), scene);
-
-    // This attaches the camera to the canvas
-    camera.attachControl(canvas, true);
-
-    // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
-    var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
-
-    // Default intensity is 1. Let's dim the light a small amount
-    light.intensity = 0.7;
-
-    // Our built-in 'ground' shape.
-    var ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 6, height: 6}, scene);
-    let groundMaterial = new BABYLON.StandardMaterial("Ground Material", scene);
-    ground.material = groundMaterial;
-    let groundTexture = new BABYLON.Texture(Assets.textures.checkerboard_basecolor_png.path, scene);
-    ground.material.diffuseTexture = groundTexture;
-
-    BABYLON.SceneLoader.ImportMesh("", Assets.meshes.Yeti.rootUrl, Assets.meshes.Yeti.filename, scene, function(newMeshes){
-        newMeshes[0].scaling = new BABYLON.Vector3(0.1, 0.1, 0.1);
-    });
-
-    return scene;
-};
+        class Playground {
+            static async CreateScene(engine, canvas) {
+                await new Promise((resolve) => {
+                    const babylonMmdScript = document.createElement("script");
+                    babylonMmdScript.src = "https://www.unpkg.com/babylon-mmd/umd/babylon.mmd.min.js";
+                    document.head.appendChild(babylonMmdScript);
+                    babylonMmdScript.onload = resolve;
+                });
+                BABYLONMMD.SdefInjector.OverrideEngineCreateEffect(engine);
+                const pmxLoader = BABYLON.SceneLoader.GetPluginForExtension(".pmx");
+                const materialBuilder = pmxLoader.materialBuilder;
+                materialBuilder.loadOutlineRenderingProperties = () => { };
+                const scene = new BABYLON.Scene(engine);
+                scene.clearColor = new BABYLON.Color4(0.95, 0.95, 0.95, 1.0);
+                const mmdCamera = new BABYLONMMD.MmdCamera("MmdCamera", new BABYLON.Vector3(0, 10, 0), scene);
+                mmdCamera.maxZ = 5000;
+                const camera = new BABYLON.ArcRotateCamera("ArcRotateCamera", 0, 0, 45, new BABYLON.Vector3(0, 10, 0), scene);
+                camera.maxZ = 5000;
+                camera.setPosition(new BABYLON.Vector3(0, 10, -45));
+                camera.attachControl(canvas, false);
+                camera.inertia = 0.8;
+                camera.speed = 10;
+                const hemisphericLight = new BABYLON.HemisphericLight("HemisphericLight", new BABYLON.Vector3(0, 1, 0), scene);
+                hemisphericLight.intensity = 0.3;
+                hemisphericLight.specular = new BABYLON.Color3(0, 0, 0);
+                hemisphericLight.groundColor = new BABYLON.Color3(1, 1, 1);
+                const directionalLight = new BABYLON.DirectionalLight("DirectionalLight", new BABYLON.Vector3(0.5, -1, 1), scene);
+                directionalLight.intensity = 0.7;
+                directionalLight.autoCalcShadowZBounds = false;
+                directionalLight.autoUpdateExtends = false;
+                directionalLight.shadowMaxZ = 20;
+                directionalLight.shadowMinZ = -15;
+                directionalLight.orthoTop = 18;
+                directionalLight.orthoBottom = -1;
+                directionalLight.orthoLeft = -10;
+                directionalLight.orthoRight = 10;
+                directionalLight.shadowOrthoScale = 0;
+                const shadowGenerator = new BABYLON.ShadowGenerator(1024, directionalLight, true);
+                shadowGenerator.usePercentageCloserFiltering = true;
+                shadowGenerator.forceBackFacesOnly = true;
+                shadowGenerator.filteringQuality = BABYLON.ShadowGenerator.QUALITY_MEDIUM;
+                shadowGenerator.frustumEdgeFalloff = 0.1;
+                const mmdRuntime = new BABYLONMMD.MmdRuntime(scene, new BABYLONMMD.MmdPhysics(scene));
+                mmdRuntime.register(scene);
+                const audioPlayer = new BABYLONMMD.StreamAudioPlayer(scene);
+                audioPlayer.preservesPitch = false;
+                audioPlayer.source = "https://noname0310.github.io/web-mmd-viewer/melancholic_night/mmd_public/motion/melancholy_night/melancholy_night.mp3";
+                mmdRuntime.setAudioPlayer(audioPlayer);
+                mmdRuntime.playAnimation();
+                const mmdPlayerControl = new BABYLONMMD.MmdPlayerControl(scene, mmdRuntime, audioPlayer);
+                mmdPlayerControl.showPlayerControl();
+                engine.displayLoadingUI();
+                let loadingTexts = [];
+                const updateLoadingText = (updateIndex, text) => {
+                    loadingTexts[updateIndex] = text;
+                    engine.loadingUIText = "<br/><br/><br/><br/>" + loadingTexts.join("<br/><br/>");
+                };
+                const promises = [];
+                const bvmdLoader = new BABYLONMMD.BvmdLoader(scene);
+                promises.push(bvmdLoader.loadAsync("motion", "https://noname0310.github.io/web-mmd-viewer/melancholic_night/mmd_public/motion/melancholy_night/motion.bvmd", (event) => updateLoadingText(0, `Loading motion... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`)));
+                promises.push(BABYLON.SceneLoader.ImportMeshAsync(undefined, "https://noname0310.github.io/web-mmd-viewer/melancholic_night/mmd_public/model/yyb_hatsune_miku_10th_ff/yyb_hatsune_miku_10th_v1.02.pmx", undefined, scene, event => updateLoadingText(1, `Loading model... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`)));
+                promises.push((async () => {
+                    updateLoadingText(2, "Loading physics engine...");
+                    const havokPlugin = new BABYLON.HavokPlugin();
+                    scene.enablePhysics(new BABYLON.Vector3(0, -98, 0), havokPlugin);
+                    updateLoadingText(2, "Loading physics engine... Done");
+                })());
+                loadingTexts = new Array(promises.length).fill("");
+                const loadResults = await Promise.all(promises);
+                scene.onAfterRenderObservable.addOnce(() => engine.hideLoadingUI());
+                mmdRuntime.setCamera(mmdCamera);
+                mmdCamera.addAnimation(loadResults[0]);
+                mmdCamera.setAnimation("motion");
+                const modelMesh = loadResults[1].meshes[0];
+                modelMesh.receiveShadows = true;
+                ;
+                for (const mesh of modelMesh.metadata.meshes)
+                    shadowGenerator.addShadowCaster(mesh);
+                const mmdModel = mmdRuntime.createMmdModel(modelMesh);
+                mmdModel.addAnimation(loadResults[0]);
+                mmdModel.setAnimation("motion");
+                const bodyBone = mmdModel.runtimeBones.find((bone) => bone.name === "センター");
+                scene.onBeforeRenderObservable.add(() => {
+                    bodyBone.getWorldTranslationToRef(directionalLight.position);
+                    directionalLight.position.y -= 10;
+                });
+                const ground = BABYLON.MeshBuilder.CreateGround("Ground", { width: 100, height: 100, subdivisions: 2, updatable: false }, scene);
+                ground.receiveShadows = true;
+                const groundMaterial = ground.material = new BABYLON.StandardMaterial("GroundMaterial", scene);
+                groundMaterial.diffuseColor = new BABYLON.Color3(0.7, 0.7, 0.7);
+                groundMaterial.specularPower = 128;
+                const groundReflectionTexture = groundMaterial.reflectionTexture = new BABYLON.MirrorTexture("MirrorTexture", 1024, scene, true);
+                groundReflectionTexture.mirrorPlane = BABYLON.Plane.FromPositionAndNormal(ground.position, ground.getFacetNormal(0).scale(-1));
+                groundReflectionTexture.renderList = [modelMesh];
+                groundReflectionTexture.level = 0.45;
+                const defaultPipeline = new BABYLON.DefaultRenderingPipeline("default", true, scene, [mmdCamera, camera]);
+                defaultPipeline.samples = 4;
+                defaultPipeline.bloomEnabled = true;
+                defaultPipeline.chromaticAberrationEnabled = true;
+                defaultPipeline.chromaticAberration.aberrationAmount = 1;
+                defaultPipeline.fxaaEnabled = true;
+                defaultPipeline.imageProcessingEnabled = true;
+                defaultPipeline.imageProcessing.toneMappingEnabled = true;
+                defaultPipeline.imageProcessing.toneMappingType = BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
+                defaultPipeline.imageProcessing.vignetteWeight = 0.5;
+                defaultPipeline.imageProcessing.vignetteStretch = 0.5;
+                defaultPipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 0);
+                defaultPipeline.imageProcessing.vignetteEnabled = true;
+                const guiCamera = new BABYLON.ArcRotateCamera("GUICamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new BABYLON.Vector3(0, 20, 0), scene);
+                guiCamera.layerMask = 0x10000000;
+                scene.activeCameras = [mmdCamera, guiCamera];
+                /* let lastClickTime = -Infinity;
+                canvas.onclick = (): void => {
+                    const currentTime = performance.now();
+                    if (500 < currentTime - lastClickTime) {
+                        lastClickTime = currentTime;
+                        return;
+                    }
+                    lastClickTime = -Infinity;
+        
+                    if (scene.activeCameras[0] === mmdCamera) scene.activeCameras = [camera, guiCamera];
+                    else scene.activeCameras = [mmdCamera, guiCamera];
+                }; */
+                mmdCamera.viewport = new BABYLON.Viewport(0, 0, 1, 1);
+                camera.viewport = new BABYLON.Viewport(0, 0, 0.25, 0.25);
+                scene.activeCameras.push(mmdCamera);
+                scene.activeCameras.push(camera);
+                const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+                advancedTexture.layer.layerMask = 0x10000000;
+                const textblock = new BABYLON.GUI.TextBlock();
+                textblock.widthInPixels = 500;
+                textblock.heightInPixels = 110;
+                textblock.left = 10;
+                textblock.text = "メランコリ・ナイト / melancholy night feat.初音ミク\n\nMusic & Lyrics by higma\nMotion by ほうき堂\nModel: YYB Hatsune Miku 10th by YYB";
+                textblock.fontSize = 16;
+                textblock.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+                textblock.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+                textblock.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+                textblock.color = "black";
+                advancedTexture.addControl(textblock);
+                const webXrExperience = await scene.createDefaultXRExperienceAsync({
+                    uiOptions: {
+                        sessionMode: "immersive-ar",
+                        referenceSpaceType: "local-floor"
+                    },
+                    floorMeshes: [ground],
+                    optionalFeatures: true
+                });
+                // post process seems not working on immersive-ar
+                webXrExperience.baseExperience.sessionManager.onXRFrameObservable.addOnce(() => {
+                    defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
+                });
+                webXrExperience.baseExperience.sessionManager.onXRSessionInit.add(() => {
+                    scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
+                    // mmdRuntime.playAnimation();
+                });
+                webXrExperience.baseExperience.sessionManager.onXRSessionEnded.add(() => {
+                    scene.clearColor = new BABYLON.Color4(0.95, 0.95, 0.95, 1);
+                });
+                webXrExperience.baseExperience.sessionManager.onXRFrameObservable.add(() => {
+                    // webXrExperience.baseExperience.camera.setTransformationFromNonVRCamera(mmdCamera, true);
+                });
+                return scene;
+            }
+        }
+        createScene = function() { return Playground.CreateScene(engine, engine.getRenderingCanvas()); }
                 window.initFunction = async function() {
                     
                     
@@ -105,8 +243,9 @@
                     window.engine = await asyncEngineCreation();
         if (!engine) throw 'engine should not be null.';
         startRenderLoop(engine, canvas);
-        window.scene = createScene();};
-        initFunction().then(() => {sceneToRender = scene                    
+window.scene = createScene();};
+        initFunction().then(() => {scene.then(returnedScene => { sceneToRender = returnedScene; });
+                            
         });
 
         // Resize
