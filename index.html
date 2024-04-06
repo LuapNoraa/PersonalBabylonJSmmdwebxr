@@ -201,31 +201,14 @@
                 textblock.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
                 textblock.color = "black";
                 advancedTexture.addControl(textblock);
-                const sessionManager = new BABYLON.WebXRSessionManager(scene);
-                const supported = await sessionManager.isSessionSupportedAsync("immersive-ar");
-                if (supported) {
-                    const webXrExperience = await scene.createDefaultXRExperienceAsync({
-                        uiOptions: {
-                            sessionMode: "immersive-ar",
-                            referenceSpaceType: "local-floor"
-                        },
-                        floorMeshes: [ground]
-                        // optionalFeatures: true
-                    });
-                    // // post process seems not working on immersive-ar
-                    // webXrExperience.baseExperience.sessionManager.onXRFrameObservable.addOnce(() => {
-                    //     //defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
-                    // });
-                    // webXrExperience.baseExperience.sessionManager.onXRSessionInit.add(() => {
-                    //     scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
-                    //     // mmdRuntime.playAnimation();
-                    // });
-                    // webXrExperience.baseExperience.sessionManager.onXRSessionEnded.add(() => {
-                    //     scene.clearColor = new BABYLON.Color4(0.95, 0.95, 0.95, 1);
-                    // });
-                    // webXrExperience.baseExperience.sessionManager.onXRFrameObservable.add(() => {
-                    //     // webXrExperience.baseExperience.camera.setTransformationFromNonVRCamera(mmdCamera, true);
-                    // });
+                
+                var defaultXRExperience = await scene.createDefaultXRExperienceAsync( /* optional configuration options */ );
+                if (!defaultXRExperience.baseExperience) {
+                    // no xr support
+                } else {
+                    // all good, ready to go
+                }
+                
                 }
                 return scene;
             }
