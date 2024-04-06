@@ -207,6 +207,12 @@
                 textblock.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
                 textblock.color = "black";
                 advancedTexture.addControl(textblock);
+                
+                var defaultXRExperience = await scene.createDefaultXRExperienceAsync({
+                    uiOptions: {
+                        sessionMode: 'immersive-ar'
+                    }
+                });  
                 return scene;
             }
         }
