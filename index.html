@@ -122,12 +122,12 @@
                 const bvmdLoader = new BABYLONMMD.BvmdLoader(scene);
                 promises.push(bvmdLoader.loadAsync("motion", "https://noname0310.github.io/web-mmd-viewer/melancholic_night/mmd_public/motion/melancholy_night/motion.bvmd", (event) => updateLoadingText(0, `Loading motion... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`)));
                 promises.push(BABYLON.SceneLoader.ImportMeshAsync(undefined, "https://noname0310.github.io/web-mmd-viewer/melancholic_night/mmd_public/model/yyb_hatsune_miku_10th_ff/yyb_hatsune_miku_10th_v1.02.pmx", undefined, scene, event => updateLoadingText(1, `Loading model... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`)));
-                promises.push((async () => {
-                    updateLoadingText(2, "Loading physics engine...");
-                    const havokPlugin = new BABYLON.HavokPlugin();
-                    scene.enablePhysics(new BABYLON.Vector3(0, -98, 0), havokPlugin);
-                    updateLoadingText(2, "Loading physics engine... Done");
-                })());
+                // promises.push((async () => {
+                //     updateLoadingText(2, "Loading physics engine...");
+                //     const havokPlugin = new BABYLON.HavokPlugin();
+                //     scene.enablePhysics(new BABYLON.Vector3(0, -98, 0), havokPlugin);
+                //     updateLoadingText(2, "Loading physics engine... Done");
+                // })());
                 loadingTexts = new Array(promises.length).fill("");
                 const loadResults = await Promise.all(promises);
                 scene.onAfterRenderObservable.addOnce(() => engine.hideLoadingUI());
