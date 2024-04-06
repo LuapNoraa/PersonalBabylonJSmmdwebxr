@@ -185,7 +185,7 @@
                     else scene.activeCameras = [mmdCamera, guiCamera];
                 }; */
                 mmdCamera.viewport = new BABYLON.Viewport(0, 0, 1, 1);
-                camera.viewport = new BABYLON.Viewport(0, 0, 0.25, 0.25);
+                camera.viewport = new BABYLON.Viewport(0, 0.75, 0.25, 0.25);
                 scene.activeCameras.push(mmdCamera);
                 scene.activeCameras.push(camera);
                 const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
@@ -201,28 +201,32 @@
                 textblock.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
                 textblock.color = "black";
                 advancedTexture.addControl(textblock);
-                const webXrExperience = await scene.createDefaultXRExperienceAsync({
-                    uiOptions: {
-                        sessionMode: "immersive-ar",
-                        referenceSpaceType: "local-floor"
-                    },
-                    floorMeshes: [ground],
-                    optionalFeatures: true
-                });
-                // post process seems not working on immersive-ar
-                webXrExperience.baseExperience.sessionManager.onXRFrameObservable.addOnce(() => {
-                    defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
-                });
-                webXrExperience.baseExperience.sessionManager.onXRSessionInit.add(() => {
-                    scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
-                    // mmdRuntime.playAnimation();
-                });
-                webXrExperience.baseExperience.sessionManager.onXRSessionEnded.add(() => {
-                    scene.clearColor = new BABYLON.Color4(0.95, 0.95, 0.95, 1);
-                });
-                webXrExperience.baseExperience.sessionManager.onXRFrameObservable.add(() => {
-                    // webXrExperience.baseExperience.camera.setTransformationFromNonVRCamera(mmdCamera, true);
-                });
+                const sessionManager = new BABYLON.WebXRSessionManager(scene);
+                const supported = await sessionManager.isSessionSupportedAsync("immersive-ar");
+                if (supported) {
+                    const webXrExperience = await scene.createDefaultXRExperienceAsync({
+                        uiOptions: {
+                            sessionMode: "immersive-ar",
+                            referenceSpaceType: "local-floor"
+                        },
+                        floorMeshes: [ground]
+                        // optionalFeatures: true
+                    });
+                    // // post process seems not working on immersive-ar
+                    // webXrExperience.baseExperience.sessionManager.onXRFrameObservable.addOnce(() => {
+                    //     //defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
+                    // });
+                    webXrExperience.baseExperience.sessionManager.onXRSessionInit.add(() => {
+                        scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
+                        // mmdRuntime.playAnimation();
+                    });
+                    webXrExperience.baseExperience.sessionManager.onXRSessionEnded.add(() => {
+                        scene.clearColor = new BABYLON.Color4(0.95, 0.95, 0.95, 1);
+                    });
+                    // webXrExperience.baseExperience.sessionManager.onXRFrameObservable.add(() => {
+                    //     // webXrExperience.baseExperience.camera.setTransformationFromNonVRCamera(mmdCamera, true);
+                    // });
+                }
                 return scene;
             }
         }
