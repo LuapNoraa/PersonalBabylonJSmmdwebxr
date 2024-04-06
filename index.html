@@ -126,6 +126,7 @@
                     updateLoadingText(2, "Loading physics engine...");
                     const hk = await HavokPhysics();
                     const havokPlugin = new BABYLON.HavokPlugin();
+                    const babylonPlugin =  new BABYLON.HavokPlugin(true, hk);
                     scene.enablePhysics(new BABYLON.Vector3(0, -98, 0), havokPlugin);
                     updateLoadingText(2, "Loading physics engine... Done");
                 })());
