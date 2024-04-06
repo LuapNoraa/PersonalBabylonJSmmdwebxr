@@ -17,7 +17,6 @@ import "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeCameraAnimation";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation";
 
-import { MeshBuilder, MirrorTexture, Plane, StandardMaterial } from "@babylonjs/core";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { Engine } from "@babylonjs/core/Engines/engine";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
@@ -26,13 +25,13 @@ import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator"
 import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
-// import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
+import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
 import { Scene } from "@babylonjs/core/scene";
 import havokPhysics from "@babylonjs/havok";
-// import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
+import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
 import type { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
 import type { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
 import type { BpmxLoader } from "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
@@ -109,14 +108,12 @@ export class SceneBuilder implements ISceneBuilder {
         shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
         shadowGenerator.frustumEdgeFalloff = 0.1;
 
-        const ground = MeshBuilder.CreateGround("Ground", { width: 100, height: 100, subdivisions: 2, updatable: false }, scene);
+        const ground = CreateGround("ground1", { width: 100, height: 100, subdivisions: 2, updatable: false }, scene);
+        const shadowOnlyMaterial = ground.material = new ShadowOnlyMaterial("shadowOnly", scene);
+        shadowOnlyMaterial.activeLight = directionalLight;
+        shadowOnlyMaterial.alpha = 0.4;
         ground.receiveShadows = true;
-        const groundMaterial = ground.material = new StandardMaterial("GroundMaterial", scene);
-        groundMaterial.diffuseColor = new Color3(0.65, 0.65, 0.65);
-        groundMaterial.specularPower = 128;
-        const groundReflectionTexture = groundMaterial.reflectionTexture = new MirrorTexture("MirrorTexture", 1024, scene, true);
-        groundReflectionTexture.mirrorPlane = Plane.FromPositionAndNormal(ground.position, ground.getFacetNormal(0).scale(-1));
-        groundReflectionTexture.level = 0.45;
+        ground.parent = mmdRoot;
 
         // create mmd runtime with physics
         const mmdRuntime = new MmdRuntime(scene, new MmdPhysics(scene));
@@ -208,8 +205,6 @@ export class SceneBuilder implements ISceneBuilder {
             });
         }
 
-        groundReflectionTexture.renderList = [modelMesh];
-
         // optimize scene when all assets are loaded (unstable)
         scene.onAfterRenderObservable.addOnce(() => {
             scene.freezeMaterials();
@@ -289,7 +284,7 @@ export class SceneBuilder implements ISceneBuilder {
             webXrExperience.baseExperience.sessionManager.onXRFrameObservable.addOnce(() => {
                 defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
             });
-            webXrExperience.baseExperience.sessionManager.worldScalingFactor = 15;
+            webXrExperience.baseExperience.sessionManager.worldScalingFactor = 12.5;
 
             webXrExperience.baseExperience.sessionManager.onXRSessionInit.add(() => {
                 scene.clearColor = new Color4(0, 0, 0, 0);
