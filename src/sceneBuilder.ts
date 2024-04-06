@@ -290,6 +290,14 @@ export class SceneBuilder implements ISceneBuilder {
                 defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
             });
             webXrExperience.baseExperience.sessionManager.worldScalingFactor = 15;
+
+            webXrExperience.baseExperience.sessionManager.onXRSessionInit.add(() => {
+                scene.clearColor = new Color4(0, 0, 0, 0);
+            });
+
+            webXrExperience.baseExperience.sessionManager.onXRSessionEnded.add(() => {
+                scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
+            });
         }
 
         return scene;
