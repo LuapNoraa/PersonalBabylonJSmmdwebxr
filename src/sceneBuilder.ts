@@ -16,7 +16,9 @@ import "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 // for play `MmdAnimation` we need to import following two modules.
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeCameraAnimation";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation";
+import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent";
 
+import { ImageProcessingConfiguration, PhysicsBody, PhysicsMotionType, PhysicsShapeBox } from "@babylonjs/core";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { Engine } from "@babylonjs/core/Engines/engine";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
@@ -24,14 +26,15 @@ import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
-import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
 import { Scene } from "@babylonjs/core/scene";
+import { AdvancedDynamicTexture, Control, TextBlock } from "@babylonjs/gui/2D";
 import havokPhysics from "@babylonjs/havok";
-import { Inspector } from "@babylonjs/inspector";
+// import { Inspector } from "@babylonjs/inspector";
 import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
 import type { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
 import type { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
@@ -84,6 +87,11 @@ export class SceneBuilder implements ISceneBuilder {
         camera.attachControl(canvas, false);
         camera.inertia = 0.8;
         camera.speed = 4;
+
+        // mmdCamera.viewport = new Viewport(0, 0, 1, 1);
+        // camera.viewport = new Viewport(0.75, 0.75, 0.25, 0.25);
+
+        // scene.activeCameras = [mmdCamera, camera];
 
         const hemisphericLight = new HemisphericLight("HemisphericLight", new Vector3(0, 1, 0), scene);
         hemisphericLight.intensity = 0.4;
@@ -228,20 +236,11 @@ export class SceneBuilder implements ISceneBuilder {
         });
 
         // if you want ground collision, uncomment following lines.
-        // const groundRigidBody = new PhysicsBody(ground, PhysicsMotionType.STATIC, true, scene);
-        // groundRigidBody.shape = new PhysicsShapeBox(
-        //     new Vector3(0, -1, 0),
-        //     new Quaternion(),
-        //     new Vector3(100, 2, 100), scene);
-
-        const defaultPipeline = new DefaultRenderingPipeline("default", true, scene, [mmdCamera, camera]);
-        defaultPipeline.samples = 4;
-        defaultPipeline.bloomEnabled = false;
-        defaultPipeline.chromaticAberrationEnabled = true;
-        defaultPipeline.chromaticAberration.aberrationAmount = 1;
-        defaultPipeline.depthOfFieldEnabled = false;
-        defaultPipeline.fxaaEnabled = true;
-        defaultPipeline.imageProcessingEnabled = false;
+        const groundRigidBody = new PhysicsBody(ground, PhysicsMotionType.STATIC, true, scene);
+        groundRigidBody.shape = new PhysicsShapeBox(
+            new Vector3(0, -1, 0),
+            new Quaternion(),
+            new Vector3(100, 2, 100), scene);
 
         // switch camera when double click
         let lastClickTime = -Infinity;
@@ -262,7 +261,7 @@ export class SceneBuilder implements ISceneBuilder {
         };
 
         // if you want to use inspector, uncomment following line.
-        Inspector.Show(scene, { });
+        // Inspector.Show(scene, { });
 
         mmdRuntime.seekAnimation(0, true);
 
@@ -278,9 +277,19 @@ export class SceneBuilder implements ISceneBuilder {
             }
         });
 
-        //webXrExperience.baseExperience.featuresManager.enableFeature(WebXRFeatureName.LAYERS, "latest", {
-        //    preferMultiviewOnInit: true
-        //}, true, false);
+        const defaultPipeline = new DefaultRenderingPipeline("default", true, scene, [mmdCamera, camera]);
+        defaultPipeline.samples = 4;
+        defaultPipeline.bloomEnabled = true;
+        defaultPipeline.chromaticAberrationEnabled = true;
+        defaultPipeline.chromaticAberration.aberrationAmount = 1;
+        defaultPipeline.fxaaEnabled = true;
+        defaultPipeline.imageProcessingEnabled = true;
+        defaultPipeline.imageProcessing.toneMappingEnabled = true;
+        defaultPipeline.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
+        defaultPipeline.imageProcessing.vignetteWeight = 0.5;
+        defaultPipeline.imageProcessing.vignetteStretch = 0.5;
+        defaultPipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0);
+        defaultPipeline.imageProcessing.vignetteEnabled = true;
 
         if (webXrExperience.baseExperience !== undefined) {
             // post process seems not working on immersive-ar
@@ -292,6 +301,7 @@ export class SceneBuilder implements ISceneBuilder {
             webXrExperience.baseExperience.sessionManager.onXRSessionInit.add(() => {
                 scene.clearColor = new Color4(0, 0, 0, 0);
                 shadowOnlyMaterial.alpha = 0.2;
+                mmdRuntime.playAnimation();
             });
 
             webXrExperience.baseExperience.sessionManager.onXRSessionEnded.add(() => {
@@ -299,6 +309,20 @@ export class SceneBuilder implements ISceneBuilder {
                 shadowOnlyMaterial.alpha = 0.4;
             });
         }
+
+        const advancedTexture = AdvancedDynamicTexture.CreateFullscreenUI("UI");
+        advancedTexture.layer!.layerMask = 0x10000000;
+        const textblock = new TextBlock();
+        textblock.widthInPixels = 500;
+        textblock.heightInPixels = 110;
+        textblock.left = 10;
+        textblock.text = "メランコリ・ナイト / melancholy night feat.初音ミク\n\nMusic & Lyrics by higma\nMotion by ほうき堂\nModel: YYB Hatsune Miku 10th by YYB";
+        textblock.fontSize = 20;
+        textblock.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        textblock.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        textblock.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        textblock.color = "grey";
+        advancedTexture.addControl(textblock);
 
         return scene;
     }
