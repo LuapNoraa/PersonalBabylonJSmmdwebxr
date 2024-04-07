@@ -31,6 +31,7 @@ import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
 import { Scene } from "@babylonjs/core/scene";
 import havokPhysics from "@babylonjs/havok";
+import { Inspector } from "@babylonjs/inspector";
 import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
 import type { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
 import type { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
@@ -235,12 +236,12 @@ export class SceneBuilder implements ISceneBuilder {
 
         const defaultPipeline = new DefaultRenderingPipeline("default", true, scene, [mmdCamera, camera]);
         defaultPipeline.samples = 4;
-        // defaultPipeline.bloomEnabled = false;
-        //defaultPipeline.chromaticAberrationEnabled = true;
-        //defaultPipeline.chromaticAberration.aberrationAmount = 1;
-        // defaultPipeline.depthOfFieldEnabled = false;
+        defaultPipeline.bloomEnabled = false;
+        defaultPipeline.chromaticAberrationEnabled = true;
+        defaultPipeline.chromaticAberration.aberrationAmount = 1;
+        defaultPipeline.depthOfFieldEnabled = false;
         defaultPipeline.fxaaEnabled = true;
-        // defaultPipeline.imageProcessingEnabled = false;
+        defaultPipeline.imageProcessingEnabled = false;
 
         // switch camera when double click
         let lastClickTime = -Infinity;
@@ -261,7 +262,9 @@ export class SceneBuilder implements ISceneBuilder {
         };
 
         // if you want to use inspector, uncomment following line.
-        // Inspector.Show(scene, { });
+        Inspector.Show(scene, { });
+
+        mmdRuntime.seekAnimation(0, true);
 
         // webxr experience for AR
         const webXrExperience = await scene.createDefaultXRExperienceAsync({
@@ -288,10 +291,12 @@ export class SceneBuilder implements ISceneBuilder {
 
             webXrExperience.baseExperience.sessionManager.onXRSessionInit.add(() => {
                 scene.clearColor = new Color4(0, 0, 0, 0);
+                shadowOnlyMaterial.alpha = 0.2;
             });
 
             webXrExperience.baseExperience.sessionManager.onXRSessionEnded.add(() => {
                 scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
+                shadowOnlyMaterial.alpha = 0.4;
             });
         }
 
