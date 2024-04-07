@@ -16,9 +16,8 @@ import "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 // for play `MmdAnimation` we need to import following two modules.
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeCameraAnimation";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation";
-import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent";
 
-import { ImageProcessingConfiguration, PhysicsBody, PhysicsMotionType, PhysicsShapeBox } from "@babylonjs/core";
+import { ImageProcessingConfiguration, PhysicsBody, PhysicsMotionType, PhysicsShapeBox, Texture } from "@babylonjs/core";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { Engine } from "@babylonjs/core/Engines/engine";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
@@ -34,7 +33,7 @@ import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPi
 import { Scene } from "@babylonjs/core/scene";
 import { AdvancedDynamicTexture, Control, TextBlock } from "@babylonjs/gui/2D";
 import havokPhysics from "@babylonjs/havok";
-// import { Inspector } from "@babylonjs/inspector";
+import { Inspector } from "@babylonjs/inspector";
 import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
 import type { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
 import type { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
@@ -79,18 +78,19 @@ export class SceneBuilder implements ISceneBuilder {
         mmdCamera.maxZ = 300;
         mmdCamera.minZ = 1;
         mmdCamera.parent = mmdRoot;
+        mmdCamera.layerMask = 1;
 
-        const camera = new ArcRotateCamera("arcRotateCamera", 0, 0, 45, new Vector3(0, 10, 1), scene);
+        const camera = new ArcRotateCamera("arcRotateCamera", 0, 0, 45, new Vector3(0, 10, 15), scene);
         camera.maxZ = 1000;
         camera.minZ = 0.1;
         camera.setPosition(new Vector3(0, 10, -45));
         camera.attachControl(canvas, false);
         camera.inertia = 0.8;
         camera.speed = 4;
+        camera.layerMask = 1;
 
         // mmdCamera.viewport = new Viewport(0, 0, 1, 1);
         // camera.viewport = new Viewport(0.75, 0.75, 0.25, 0.25);
-
         // scene.activeCameras = [mmdCamera, camera];
 
         const hemisphericLight = new HemisphericLight("HemisphericLight", new Vector3(0, 1, 0), scene);
@@ -170,7 +170,9 @@ export class SceneBuilder implements ISceneBuilder {
             "res/private_test/model/",
             "YYB Hatsune Miku_10th_v1.02_toonchange.bpmx",
             scene,
-            (event) => updateLoadingText(1, `Loading model... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`)
+            (event) => updateLoadingText(1, `Loading model... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`),
+            null,
+            "importedmmdmodel"
         ));
 
         promises.push((async(): Promise<void> => {
@@ -242,7 +244,28 @@ export class SceneBuilder implements ISceneBuilder {
             new Quaternion(),
             new Vector3(100, 2, 100), scene);
 
+        // setting camera gui for text credits to be excluded on post processing
+        const guiCamera = new ArcRotateCamera("GUICamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new Vector3(0, 20, 0), scene);
+        guiCamera.layerMask = 0x10000000;
+        scene.activeCameras = [mmdCamera, guiCamera];
+
+        // the text on the gui
+        const advancedTexture = AdvancedDynamicTexture.CreateFullscreenUI("UI", true, scene, Texture.BILINEAR_SAMPLINGMODE, true);
+        advancedTexture.layer!.layerMask = 0x10000000;
+        const textblock = new TextBlock();
+        textblock.widthInPixels = 500;
+        textblock.heightInPixels = 110;
+        textblock.left = 10;
+        textblock.text = "メランコリ・ナイト / melancholy night feat.初音ミク\n\nMusic & Lyrics by higma\nMotion by ほうき堂\nModel: YYB Hatsune Miku 10th by YYB";
+        textblock.fontSize = 20;
+        textblock.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        textblock.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        textblock.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        textblock.color = "black";
+        advancedTexture.addControl(textblock);
+
         // switch camera when double click
+        let animatedCamera: boolean = true;
         let lastClickTime = -Infinity;
         canvas.onclick = (): void => {
             const currentTime = performance.now();
@@ -253,29 +276,19 @@ export class SceneBuilder implements ISceneBuilder {
 
             lastClickTime = -Infinity;
 
-            if (scene.activeCamera === mmdCamera) {
-                scene.activeCamera = camera;
+            if (animatedCamera) {
+                scene.activeCameras = [camera, guiCamera];
+                animatedCamera = false;
             } else {
-                scene.activeCamera = mmdCamera;
+                scene.activeCameras = [mmdCamera, guiCamera];
+                animatedCamera = true;
             }
         };
 
         // if you want to use inspector, uncomment following line.
-        // Inspector.Show(scene, { });
+        Inspector.Show(scene, { });
 
         mmdRuntime.seekAnimation(0, true);
-
-        // webxr experience for AR
-        const webXrExperience = await scene.createDefaultXRExperienceAsync({
-            uiOptions: {
-                sessionMode: "immersive-ar",
-                referenceSpaceType: "local-floor"
-            },
-            floorMeshes: [ground] /* Array of meshes to be used as landing points */,
-            teleportationOptions: {
-                // Options to pass to the teleportation module
-            }
-        });
 
         const defaultPipeline = new DefaultRenderingPipeline("default", true, scene, [mmdCamera, camera]);
         defaultPipeline.samples = 4;
@@ -290,6 +303,19 @@ export class SceneBuilder implements ISceneBuilder {
         defaultPipeline.imageProcessing.vignetteStretch = 0.5;
         defaultPipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0);
         defaultPipeline.imageProcessing.vignetteEnabled = true;
+
+        // webxr experience for AR
+        const webXrExperience = await scene.createDefaultXRExperienceAsync({
+            uiOptions: {
+                sessionMode: "immersive-ar",
+                referenceSpaceType: "local-floor"
+            },
+            floorMeshes: [ground] /* Array of meshes to be used as landing points */,
+            teleportationOptions: {
+                // Options to pass to the teleportation module
+            }
+        });
+
 
         if (webXrExperience.baseExperience !== undefined) {
             // post process seems not working on immersive-ar
@@ -309,21 +335,6 @@ export class SceneBuilder implements ISceneBuilder {
                 shadowOnlyMaterial.alpha = 0.4;
             });
         }
-
-        const advancedTexture = AdvancedDynamicTexture.CreateFullscreenUI("UI");
-        advancedTexture.layer!.layerMask = 0x10000000;
-        const textblock = new TextBlock();
-        textblock.widthInPixels = 500;
-        textblock.heightInPixels = 110;
-        textblock.left = 10;
-        textblock.text = "メランコリ・ナイト / melancholy night feat.初音ミク\n\nMusic & Lyrics by higma\nMotion by ほうき堂\nModel: YYB Hatsune Miku 10th by YYB";
-        textblock.fontSize = 20;
-        textblock.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        textblock.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        textblock.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        textblock.color = "grey";
-        advancedTexture.addControl(textblock);
-
         return scene;
     }
 }
