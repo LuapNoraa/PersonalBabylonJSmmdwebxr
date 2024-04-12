@@ -78,7 +78,6 @@ export class SceneBuilder implements ISceneBuilder {
         mmdCamera.maxZ = 300;
         mmdCamera.minZ = 1;
         mmdCamera.parent = mmdRoot;
-        mmdCamera.layerMask = 1;
 
         const camera = new ArcRotateCamera("arcRotateCamera", 0, 0, 45, new Vector3(0, 10, 15), scene);
         camera.maxZ = 1000;
@@ -87,7 +86,6 @@ export class SceneBuilder implements ISceneBuilder {
         camera.attachControl(canvas, false);
         camera.inertia = 0.8;
         camera.speed = 4;
-        camera.layerMask = 1;
 
         // mmdCamera.viewport = new Viewport(0, 0, 1, 1);
         // camera.viewport = new Viewport(0.75, 0.75, 0.25, 0.25);
@@ -247,11 +245,11 @@ export class SceneBuilder implements ISceneBuilder {
         // setting camera gui for text credits to be excluded on post processing
         const guiCamera = new ArcRotateCamera("GUICamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new Vector3(0, 20, 0), scene);
         guiCamera.layerMask = 0x10000000;
-        scene.activeCameras = [mmdCamera, guiCamera];
+        // scene.activeCameras = [mmdCamera, guiCamera];
 
         // the text on the gui
         const advancedTexture = AdvancedDynamicTexture.CreateFullscreenUI("UI", true, scene, Texture.BILINEAR_SAMPLINGMODE, true);
-        advancedTexture.layer!.layerMask = 0x10000000;
+        // advancedTexture.layer!.layerMask = 0x10000000;
         const textblock = new TextBlock();
         textblock.widthInPixels = 500;
         textblock.heightInPixels = 110;
@@ -277,10 +275,10 @@ export class SceneBuilder implements ISceneBuilder {
             lastClickTime = -Infinity;
 
             if (animatedCamera) {
-                scene.activeCameras = [camera, guiCamera];
+                scene.activeCameras = [camera];
                 animatedCamera = false;
             } else {
-                scene.activeCameras = [mmdCamera, guiCamera];
+                scene.activeCameras = [mmdCamera];
                 animatedCamera = true;
             }
         };
