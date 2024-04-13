@@ -17,7 +17,7 @@ import "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeCameraAnimation";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation";
 
-import { ImageProcessingConfiguration, PhysicsBody, PhysicsMotionType, PhysicsShapeBox, Texture } from "@babylonjs/core";
+import { ImageProcessingConfiguration, PhysicsBody, PhysicsMotionType, PhysicsShapeBox, Texture, WebXRFeatureName } from "@babylonjs/core";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { Engine } from "@babylonjs/core/Engines/engine";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
@@ -38,8 +38,9 @@ import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMa
 import type { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
 import type { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
 import type { BpmxLoader } from "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
-import { BvmdLoader } from "babylon-mmd/esm/Loader/Optimized/bvmdLoader";
+// import { BvmdLoader } from "babylon-mmd/esm/Loader/Optimized/bvmdLoader";
 import { SdefInjector } from "babylon-mmd/esm/Loader/sdefInjector";
+import { VmdLoader } from "babylon-mmd/esm/Loader/vmdLoader";
 import { StreamAudioPlayer } from "babylon-mmd/esm/Runtime/Audio/streamAudioPlayer";
 import { MmdCamera } from "babylon-mmd/esm/Runtime/mmdCamera";
 import type { MmdMesh } from "babylon-mmd/esm/Runtime/mmdMesh";
@@ -124,6 +125,7 @@ export class SceneBuilder implements ISceneBuilder {
 
         // create mmd runtime with physics
         const mmdRuntime = new MmdRuntime(scene, new MmdPhysics(scene));
+        // const mmdRuntime = new MmdRuntime(scene);
         mmdRuntime.loggingEnabled = true;
         mmdRuntime.register(scene);
 
@@ -154,11 +156,11 @@ export class SceneBuilder implements ISceneBuilder {
         const promises: Promise<any>[] = [];
 
         // for load .bvmd file, we use BvmdLoader. if you want to load .vmd or .vpd file, use VmdLoader / VpdLoader
-        const bvmdLoader = new BvmdLoader(scene);
-        bvmdLoader.loggingEnabled = true;
+        const vmdLoader = new VmdLoader(scene);
+        vmdLoader.loggingEnabled = true;
 
         // you need to get this file by yourself from https://www.nicovideo.jp/watch/sm41164308
-        promises.push(bvmdLoader.loadAsync("motion", "res/private_test/motion/melancholy_night/motion.bvmd",
+        promises.push(vmdLoader.loadAsync("motion", "res/private_test/motion/melancholy_night/baked.vmd",
             (event) => updateLoadingText(0, `Loading motion... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`))
         );
 
@@ -245,20 +247,20 @@ export class SceneBuilder implements ISceneBuilder {
         // setting camera gui for text credits to be excluded on post processing
         const guiCamera = new ArcRotateCamera("GUICamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new Vector3(0, 20, 0), scene);
         guiCamera.layerMask = 0x10000000;
-        // scene.activeCameras = [mmdCamera, guiCamera];
+        scene.activeCameras = [mmdCamera, guiCamera];
 
         // the text on the gui
         const advancedTexture = AdvancedDynamicTexture.CreateFullscreenUI("UI", true, scene, Texture.BILINEAR_SAMPLINGMODE, true);
-        // advancedTexture.layer!.layerMask = 0x10000000;
+        advancedTexture.layer!.layerMask = 0x10000000;
         const textblock = new TextBlock();
         textblock.widthInPixels = 500;
-        textblock.heightInPixels = 110;
+        textblock.heightInPixels = 150;
         textblock.left = 10;
         textblock.text = "メランコリ・ナイト / melancholy night feat.初音ミク\n\nMusic & Lyrics by higma\nMotion by ほうき堂\nModel: YYB Hatsune Miku 10th by YYB";
         textblock.fontSize = 20;
         textblock.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        textblock.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        textblock.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        textblock.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+        textblock.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
         textblock.color = "black";
         advancedTexture.addControl(textblock);
 
@@ -275,10 +277,10 @@ export class SceneBuilder implements ISceneBuilder {
             lastClickTime = -Infinity;
 
             if (animatedCamera) {
-                scene.activeCameras = [camera];
+                scene.activeCameras = [camera, guiCamera];
                 animatedCamera = false;
             } else {
-                scene.activeCameras = [mmdCamera];
+                scene.activeCameras = [mmdCamera, guiCamera];
                 animatedCamera = true;
             }
         };
@@ -289,7 +291,7 @@ export class SceneBuilder implements ISceneBuilder {
         mmdRuntime.seekAnimation(0, true);
 
         const defaultPipeline = new DefaultRenderingPipeline("default", true, scene, [mmdCamera, camera]);
-        defaultPipeline.samples = 4;
+        // defaultPipeline.samples = 4;
         defaultPipeline.bloomEnabled = true;
         defaultPipeline.chromaticAberrationEnabled = true;
         defaultPipeline.chromaticAberration.aberrationAmount = 1;
@@ -316,6 +318,11 @@ export class SceneBuilder implements ISceneBuilder {
 
 
         if (webXrExperience.baseExperience !== undefined) {
+
+            webXrExperience.baseExperience.featuresManager.enableFeature(WebXRFeatureName.LAYERS, "latest", {
+                preferMultiviewOnInit: true
+            }, true, false);
+
             // post process seems not working on immersive-ar
             webXrExperience.baseExperience.sessionManager.onXRFrameObservable.addOnce(() => {
                 defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
@@ -323,16 +330,25 @@ export class SceneBuilder implements ISceneBuilder {
             webXrExperience.baseExperience.sessionManager.worldScalingFactor = 12.5;
 
             webXrExperience.baseExperience.sessionManager.onXRSessionInit.add(() => {
-                scene.clearColor = new Color4(0, 0, 0, 0);
+                // scene.clearColor = new Color4(0, 0, 0, 0);
                 shadowOnlyMaterial.alpha = 0.2;
                 mmdRuntime.playAnimation();
+                scene.activeCamera = webXrExperience.baseExperience.camera;
             });
 
             webXrExperience.baseExperience.sessionManager.onXRSessionEnded.add(() => {
-                scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
+                // scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
                 shadowOnlyMaterial.alpha = 0.4;
+                if (animatedCamera) {
+                    scene.activeCameras = [camera, guiCamera];
+                    animatedCamera = false;
+                } else {
+                    scene.activeCameras = [mmdCamera, guiCamera];
+                    animatedCamera = true;
+                }
             });
         }
+
         return scene;
     }
 }
