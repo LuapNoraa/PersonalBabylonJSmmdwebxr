@@ -322,6 +322,8 @@ object-assign
 
 /*! ../controls/textInputComponent */
 
+/*! ../copyCommandToClipboard */
+
 /*! ../customPropertyGridComponent */
 
 /*! ../extensionsComponent */
@@ -431,6 +433,8 @@ object-assign
 /*! ../tools */
 
 /*! ../treeItemLabelComponent */
+
+/*! ../treeNodeDebugger */
 
 /*! ../variantsPropertyGridComponent */
 
@@ -784,10 +788,6 @@ object-assign
 
 /*! ./loadAnimationComponent */
 
-/*! ./lod */
-
-/*! ./lodCube */
-
 /*! ./log.scss */
 
 /*! ./main.scss */
@@ -1000,6 +1000,8 @@ object-assign
 
 /*! ./treeItemSpecializedComponent */
 
+/*! ./treeNodeDebugger */
+
 /*! ./valueDownArrowIcon.svg */
 
 /*! ./valueGradientGridComponent */
@@ -1054,7 +1056,7 @@ object-assign
 
 /*! core/Materials/Textures/cubeTexture */
 
-/*! core/Materials/effect */
+/*! core/Materials/Textures/texture */
 
 /*! core/Materials/imageProcessingConfiguration */
 
@@ -1085,6 +1087,8 @@ object-assign
 /*! core/Misc/textureTools */
 
 /*! core/Misc/tools */
+
+/*! core/Misc/typeStore */
 
 /*! core/Particles/particleSystem */
 
@@ -1165,6 +1169,8 @@ object-assign
 /*! shared-ui-components/components/MessageDialog */
 
 /*! shared-ui-components/components/lines/OptionsLineComponent */
+
+/*! shared-ui-components/copyCommandToClipboard */
 
 /*! shared-ui-components/imgs/LineSpacingIcon.svg */
 
@@ -1422,10 +1428,6 @@ object-assign
   !*** ./src/index.ts ***!
   \**********************/
 
-/*!******************************************!*\
-  !*** ../../../dev/inspector/dist/lod.js ***!
-  \******************************************/
-
 /*!********************************************!*\
   !*** ../../../dev/inspector/dist/index.js ***!
   \********************************************/
@@ -1433,10 +1435,6 @@ object-assign
 /*!********************************************!*\
   !*** ../../../dev/inspector/dist/tools.js ***!
   \********************************************/
-
-/*!**********************************************!*\
-  !*** ../../../dev/inspector/dist/lodCube.js ***!
-  \**********************************************/
 
 /*!**********************************************!*\
   !*** ../../../tools/guiEditor/dist/index.js ***!
@@ -2059,6 +2057,10 @@ object-assign
   \**********************************************************************/
 
 /*!**********************************************************************!*\
+  !*** ../../../dev/sharedUiComponents/dist/copyCommandToClipboard.js ***!
+  \**********************************************************************/
+
+/*!**********************************************************************!*\
   !*** ../../../dev/sharedUiComponents/dist/imgs/checkboxIconDark.svg ***!
   \**********************************************************************/
 
@@ -2516,6 +2518,10 @@ object-assign
 
 /*!********************************************************************************!*\
   !*** ../../../dev/inspector/dist/components/actionTabs/actionTabsComponent.js ***!
+  \********************************************************************************/
+
+/*!********************************************************************************!*\
+  !*** ../../../dev/inspector/dist/components/sceneExplorer/treeNodeDebugger.js ***!
   \********************************************************************************/
 
 /*!********************************************************************************!*\

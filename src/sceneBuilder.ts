@@ -17,7 +17,7 @@ import "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeCameraAnimation";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation";
 
-import { ImageProcessingConfiguration, PhysicsBody, PhysicsMotionType, PhysicsShapeBox, Texture, WebXRFeatureName } from "@babylonjs/core";
+import { ImageProcessingConfiguration, PhysicsBody, PhysicsMotionType, PhysicsShapeBox, Texture, WebXRLayers, WebXRMeshDetector } from "@babylonjs/core";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { Engine } from "@babylonjs/core/Engines/engine";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
@@ -38,17 +38,18 @@ import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMa
 import type { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
 import type { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
 import type { BpmxLoader } from "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
-// import { BvmdLoader } from "babylon-mmd/esm/Loader/Optimized/bvmdLoader";
+import { BvmdLoader } from "babylon-mmd/esm/Loader/Optimized/bvmdLoader";
 import { SdefInjector } from "babylon-mmd/esm/Loader/sdefInjector";
-import { VmdLoader } from "babylon-mmd/esm/Loader/vmdLoader";
+// import { VmdLoader } from "babylon-mmd/esm/Loader/vmdLoader";
 import { StreamAudioPlayer } from "babylon-mmd/esm/Runtime/Audio/streamAudioPlayer";
 import { MmdCamera } from "babylon-mmd/esm/Runtime/mmdCamera";
 import type { MmdMesh } from "babylon-mmd/esm/Runtime/mmdMesh";
-import { MmdPhysics } from "babylon-mmd/esm/Runtime/mmdPhysics";
 import { MmdRuntime } from "babylon-mmd/esm/Runtime/mmdRuntime";
+import { MmdPhysics } from "babylon-mmd/esm/Runtime/Physics/mmdPhysics";
 import { MmdPlayerControl } from "babylon-mmd/esm/Runtime/Util/mmdPlayerControl";
 
 import type { ISceneBuilder } from "./baseRuntime";
+
 
 export class SceneBuilder implements ISceneBuilder {
     public async build(canvas: HTMLCanvasElement, engine: Engine): Promise<Scene> {
@@ -83,7 +84,7 @@ export class SceneBuilder implements ISceneBuilder {
         const camera = new ArcRotateCamera("arcRotateCamera", 0, 0, 45, new Vector3(0, 10, 15), scene);
         camera.maxZ = 1000;
         camera.minZ = 0.1;
-        camera.setPosition(new Vector3(0, 10, -45));
+        // camera.setPosition(new Vector3(0, 10, -45));
         camera.attachControl(canvas, false);
         camera.inertia = 0.8;
         camera.speed = 4;
@@ -156,11 +157,11 @@ export class SceneBuilder implements ISceneBuilder {
         const promises: Promise<any>[] = [];
 
         // for load .bvmd file, we use BvmdLoader. if you want to load .vmd or .vpd file, use VmdLoader / VpdLoader
-        const vmdLoader = new VmdLoader(scene);
-        vmdLoader.loggingEnabled = true;
+        const bvmdLoader = new BvmdLoader(scene);
+        bvmdLoader.loggingEnabled = true;
 
         // you need to get this file by yourself from https://www.nicovideo.jp/watch/sm41164308
-        promises.push(vmdLoader.loadAsync("motion", "res/private_test/motion/melancholy_night/baked.vmd",
+        promises.push(bvmdLoader.loadAsync("motion", "res/private_test/motion/melancholy_night/motion.bvmd",
             (event) => updateLoadingText(0, `Loading motion... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`))
         );
 
@@ -179,7 +180,7 @@ export class SceneBuilder implements ISceneBuilder {
             updateLoadingText(2, "Loading physics engine...");
             const havokInstance = await havokPhysics();
             const havokPlugin = new HavokPlugin(true, havokInstance);
-            scene.enablePhysics(new Vector3(0, -98, 0), havokPlugin);
+            scene.enablePhysics(new Vector3(0, -9.8 * 0.75, 0), havokPlugin);
             updateLoadingText(2, "Loading physics engine... Done");
         })());
 
@@ -200,6 +201,7 @@ export class SceneBuilder implements ISceneBuilder {
 
             for (const mesh of modelMesh.metadata.meshes) mesh.receiveShadows = true;
             shadowGenerator.addShadowCaster(modelMesh);
+            modelMesh.scaling.setAll(1 / 12.5);
 
             const mmdModel = mmdRuntime.createMmdModel(modelMesh);
             mmdModel.addAnimation(mmdAnimation);
@@ -259,13 +261,13 @@ export class SceneBuilder implements ISceneBuilder {
         textblock.text = "メランコリ・ナイト / melancholy night feat.初音ミク\n\nMusic & Lyrics by higma\nMotion by ほうき堂\nModel: YYB Hatsune Miku 10th by YYB";
         textblock.fontSize = 20;
         textblock.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        textblock.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-        textblock.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+        textblock.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        textblock.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         textblock.color = "black";
         advancedTexture.addControl(textblock);
 
         // switch camera when double click
-        let animatedCamera: boolean = true;
+        let animatedCamera = true;
         let lastClickTime = -Infinity;
         canvas.onclick = (): void => {
             const currentTime = performance.now();
@@ -319,25 +321,32 @@ export class SceneBuilder implements ISceneBuilder {
 
         if (webXrExperience.baseExperience !== undefined) {
 
-            webXrExperience.baseExperience.featuresManager.enableFeature(WebXRFeatureName.LAYERS, "latest", {
-                preferMultiviewOnInit: true
+            const featureManager = webXrExperience.baseExperience.featuresManager;
+            const sessionManager = webXrExperience.baseExperience.sessionManager;
+
+            featureManager.enableFeature(WebXRLayers, "latest", {
+                preferMultiviewOnInit: false
             }, true, false);
 
-            // post process seems not working on immersive-ar
-            webXrExperience.baseExperience.sessionManager.onXRFrameObservable.addOnce(() => {
+            featureManager.enableFeature(WebXRMeshDetector, "latest", {
+                doNotRemoveMeshesOnSessionEnded: false,
+                generateMeshes: false}, true, false);
+
+            sessionManager.onXRFrameObservable.addOnce(() => {
                 defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
             });
-            webXrExperience.baseExperience.sessionManager.worldScalingFactor = 12.5;
 
-            webXrExperience.baseExperience.sessionManager.onXRSessionInit.add(() => {
-                // scene.clearColor = new Color4(0, 0, 0, 0);
+            // sessionManager.worldScalingFactor = 15;
+
+            sessionManager.onXRSessionInit.add(() => {
+                scene.clearColor = new Color4(0, 0, 0, 0);
                 shadowOnlyMaterial.alpha = 0.2;
                 mmdRuntime.playAnimation();
-                scene.activeCamera = webXrExperience.baseExperience.camera;
+                scene.activeCameras = [webXrExperience.baseExperience.camera, guiCamera];
             });
 
-            webXrExperience.baseExperience.sessionManager.onXRSessionEnded.add(() => {
-                // scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
+            sessionManager.onXRSessionEnded.add(() => {
+                scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
                 shadowOnlyMaterial.alpha = 0.4;
                 if (animatedCamera) {
                     scene.activeCameras = [camera, guiCamera];
@@ -347,6 +356,23 @@ export class SceneBuilder implements ISceneBuilder {
                     animatedCamera = true;
                 }
             });
+
+            const weXRmesh = new WebXRMeshDetector(sessionManager, {doNotRemoveMeshesOnSessionEnded: false, generateMeshes: true});
+
+            weXRmesh.onMeshAddedObservable.add((meshData) => {
+                meshData.mesh!.material = shadowOnlyMaterial;
+                meshData.mesh!.receiveShadows = true;
+            });
+
+            // weXRmesh.onMeshUpdatedObservable.add((meshData) => {
+            //     meshData.mesh!.material = shadowOnlyMaterial;
+            //     meshData.mesh!.receiveShadows = true;
+
+            // });
+
+            if (weXRmesh.isCompatible()) {
+                weXRmesh.attach(true);
+            }
         }
 
         return scene;
