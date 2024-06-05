@@ -73,21 +73,20 @@ export class SceneBuilder implements ISceneBuilder {
         scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
 
         const mmdRoot = new TransformNode("mmdRoot", scene);
-        mmdRoot.position.z = 20;
+        mmdRoot.position.z = 1.5;
 
         // mmd camera for play mmd camera animation
-        const mmdCamera = new MmdCamera("mmdCamera", new Vector3(0, 10, 0), scene);
+        const mmdCamera = new MmdCamera("mmdCamera", new Vector3(0, 0, 0), scene);
         mmdCamera.maxZ = 300;
         mmdCamera.minZ = 1;
         mmdCamera.parent = mmdRoot;
 
-        const camera = new ArcRotateCamera("arcRotateCamera", 0, 0, 45, new Vector3(0, 10, 15), scene);
+        const camera = new ArcRotateCamera("arcRotateCamera", 4.75, 1.75, 2.75, new Vector3(0, 0.9, 1.5), scene);
         camera.maxZ = 1000;
         camera.minZ = 0.1;
-        // camera.setPosition(new Vector3(0, 10, -45));
         camera.attachControl(canvas, false);
         camera.inertia = 0.8;
-        camera.speed = 4;
+        camera.speed = 1;
 
         // mmdCamera.viewport = new Viewport(0, 0, 1, 1);
         // camera.viewport = new Viewport(0.75, 0.75, 0.25, 0.25);
@@ -113,11 +112,12 @@ export class SceneBuilder implements ISceneBuilder {
 
         const shadowGenerator = new ShadowGenerator(1024, directionalLight, true);
         shadowGenerator.usePercentageCloserFiltering = true;
-        shadowGenerator.forceBackFacesOnly = true;
+        // shadowGenerator.forceBackFacesOnly = true;
         shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
         shadowGenerator.frustumEdgeFalloff = 0.1;
+        shadowGenerator.bias = 0.005;
 
-        const ground = CreateGround("ground1", { width: 100, height: 100, subdivisions: 2, updatable: false }, scene);
+        const ground = CreateGround("ground1", { width: 20, height: 20, subdivisions: 2, updatable: false }, scene);
         const shadowOnlyMaterial = ground.material = new ShadowOnlyMaterial("shadowOnly", scene);
         shadowOnlyMaterial.activeLight = directionalLight;
         shadowOnlyMaterial.alpha = 0.4;
@@ -334,6 +334,10 @@ export class SceneBuilder implements ISceneBuilder {
 
             sessionManager.onXRFrameObservable.addOnce(() => {
                 defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
+                if (weXRmesh.isCompatible()) {
+                    ground.visibility = 0;
+                    weXRmesh.attach(true);
+                }
             });
 
             // sessionManager.worldScalingFactor = 15;
@@ -369,10 +373,6 @@ export class SceneBuilder implements ISceneBuilder {
             //     meshData.mesh!.receiveShadows = true;
 
             // });
-
-            if (weXRmesh.isCompatible()) {
-                weXRmesh.attach(true);
-            }
         }
 
         return scene;
