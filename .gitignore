@@ -89,7 +89,7 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-# dist
+dist
 
 # Gatsby files
 .cache/
@@ -128,4 +128,3 @@ out
 
 
 res/private_test
-dist/private_test/model

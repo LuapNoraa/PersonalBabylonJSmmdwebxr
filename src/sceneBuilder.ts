@@ -13,19 +13,22 @@ import "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 // import "babylon-mmd/esm/Loader/pmxLoader";
 // if you want to use .pmd file, uncomment following line.
 // import "babylon-mmd/esm/Loader/pmdLoader";
+// for render outline, we need to import following module.
+// import "babylon-mmd/esm/Loader/mmdOutlineRenderer";
 // for play `MmdAnimation` we need to import following two modules.
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeCameraAnimation";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation";
+import "@babylonjs/loaders";
 
-import { ImageProcessingConfiguration, PhysicsBody, PhysicsMotionType, PhysicsShapeBox, Texture, WebXRLayers, WebXRMeshDetector } from "@babylonjs/core";
+import { ImageProcessingConfiguration, MeshBuilder, MirrorTexture, Plane, StandardMaterial, Texture } from "@babylonjs/core";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
-import type { Engine } from "@babylonjs/core/Engines/engine";
+import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
-import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
@@ -33,14 +36,12 @@ import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPi
 import { Scene } from "@babylonjs/core/scene";
 import { AdvancedDynamicTexture, Control, TextBlock } from "@babylonjs/gui/2D";
 import havokPhysics from "@babylonjs/havok";
-import { Inspector } from "@babylonjs/inspector";
 import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
 import type { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
 import type { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
 import type { BpmxLoader } from "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 import { BvmdLoader } from "babylon-mmd/esm/Loader/Optimized/bvmdLoader";
 import { SdefInjector } from "babylon-mmd/esm/Loader/sdefInjector";
-// import { VmdLoader } from "babylon-mmd/esm/Loader/vmdLoader";
 import { StreamAudioPlayer } from "babylon-mmd/esm/Runtime/Audio/streamAudioPlayer";
 import { MmdCamera } from "babylon-mmd/esm/Runtime/mmdCamera";
 import type { MmdMesh } from "babylon-mmd/esm/Runtime/mmdMesh";
@@ -50,9 +51,8 @@ import { MmdPlayerControl } from "babylon-mmd/esm/Runtime/Util/mmdPlayerControl"
 
 import type { ISceneBuilder } from "./baseRuntime";
 
-
 export class SceneBuilder implements ISceneBuilder {
-    public async build(canvas: HTMLCanvasElement, engine: Engine): Promise<Scene> {
+    public async build(canvas: HTMLCanvasElement, engine: AbstractEngine): Promise<Scene> {
         // for apply SDEF on shadow, outline, depth rendering
         SdefInjector.OverrideEngineCreateEffect(engine);
 
@@ -60,37 +60,34 @@ export class SceneBuilder implements ISceneBuilder {
         const bpmxLoader = SceneLoader.GetPluginForExtension(".bpmx") as BpmxLoader;
         bpmxLoader.loggingEnabled = true;
         const materialBuilder = bpmxLoader.materialBuilder as MmdStandardMaterialBuilder;
-
+        materialBuilder;
         // if you want override texture loading, uncomment following lines.
         // materialBuilder.loadDiffuseTexture = (): void => { /* do nothing */ };
         // materialBuilder.loadSphereTexture = (): void => { /* do nothing */ };
         // materialBuilder.loadToonTexture = (): void => { /* do nothing */ };
 
         // if you need outline rendering, comment out following line.
-        materialBuilder.loadOutlineRenderingProperties = (): void => { /* do nothing */ };
+        // materialBuilder.loadOutlineRenderingProperties = (): void => { /* do nothing */ };
 
         const scene = new Scene(engine);
         scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
 
         const mmdRoot = new TransformNode("mmdRoot", scene);
-        mmdRoot.position.z = 1.5;
+        mmdRoot.position.z = 20;
 
         // mmd camera for play mmd camera animation
-        const mmdCamera = new MmdCamera("mmdCamera", new Vector3(0, 0, 0), scene);
+        const mmdCamera = new MmdCamera("mmdCamera", new Vector3(0, 10, 0), scene);
         mmdCamera.maxZ = 300;
         mmdCamera.minZ = 1;
         mmdCamera.parent = mmdRoot;
 
-        const camera = new ArcRotateCamera("arcRotateCamera", 4.75, 1.75, 2.75, new Vector3(0, 0.9, 1.5), scene);
+        const camera = new ArcRotateCamera("arcRotateCamera", 0, 0, 45, new Vector3(0, 10, 1), scene);
         camera.maxZ = 1000;
         camera.minZ = 0.1;
+        camera.setPosition(new Vector3(0, 10, -45));
         camera.attachControl(canvas, false);
         camera.inertia = 0.8;
-        camera.speed = 1;
-
-        // mmdCamera.viewport = new Viewport(0, 0, 1, 1);
-        // camera.viewport = new Viewport(0.75, 0.75, 0.25, 0.25);
-        // scene.activeCameras = [mmdCamera, camera];
+        camera.speed = 4;
 
         const hemisphericLight = new HemisphericLight("HemisphericLight", new Vector3(0, 1, 0), scene);
         hemisphericLight.intensity = 0.4;
@@ -111,22 +108,21 @@ export class SceneBuilder implements ISceneBuilder {
         directionalLight.shadowOrthoScale = 0;
 
         const shadowGenerator = new ShadowGenerator(1024, directionalLight, true);
+        shadowGenerator.transparencyShadow = true;
         shadowGenerator.usePercentageCloserFiltering = true;
-        // shadowGenerator.forceBackFacesOnly = true;
+        shadowGenerator.forceBackFacesOnly = true;
         shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
         shadowGenerator.frustumEdgeFalloff = 0.1;
-        shadowGenerator.bias = 0.005;
 
-        const ground = CreateGround("ground1", { width: 20, height: 20, subdivisions: 2, updatable: false }, scene);
-        const shadowOnlyMaterial = ground.material = new ShadowOnlyMaterial("shadowOnly", scene);
+        const ground2 = CreateGround("ground1", { width: 100, height: 100, subdivisions: 2, updatable: false }, scene);
+        const shadowOnlyMaterial = ground2.material = new ShadowOnlyMaterial("shadowOnly", scene);
         shadowOnlyMaterial.activeLight = directionalLight;
-        shadowOnlyMaterial.alpha = 0.4;
-        ground.receiveShadows = true;
-        ground.parent = mmdRoot;
+        shadowOnlyMaterial.alpha = 0;
+        ground2.receiveShadows = true;
+        ground2.parent = mmdRoot;
 
         // create mmd runtime with physics
         const mmdRuntime = new MmdRuntime(scene, new MmdPhysics(scene));
-        // const mmdRuntime = new MmdRuntime(scene);
         mmdRuntime.loggingEnabled = true;
         mmdRuntime.register(scene);
 
@@ -139,7 +135,7 @@ export class SceneBuilder implements ISceneBuilder {
 
         // play before loading. this will cause the audio to play first before all assets are loaded.
         // playing the audio first can help ease the user's patience
-        // mmdRuntime.playAnimation();
+        mmdRuntime.playAnimation();
 
         // create youtube like player control
         const mmdPlayerControl = new MmdPlayerControl(scene, mmdRuntime, audioPlayer);
@@ -169,18 +165,16 @@ export class SceneBuilder implements ISceneBuilder {
         promises.push(SceneLoader.ImportMeshAsync(
             undefined,
             "res/private_test/model/",
-            "YYB Hatsune Miku_10th_v1.02_toonchange.bpmx",
+            "YYB Hatsune Miku_10th.bpmx",
             scene,
-            (event) => updateLoadingText(1, `Loading model... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`),
-            null,
-            "importedmmdmodel"
+            (event) => updateLoadingText(1, `Loading model... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`)
         ));
 
         promises.push((async(): Promise<void> => {
             updateLoadingText(2, "Loading physics engine...");
             const havokInstance = await havokPhysics();
             const havokPlugin = new HavokPlugin(true, havokInstance);
-            scene.enablePhysics(new Vector3(0, -9.8 * 0.75, 0), havokPlugin);
+            scene.enablePhysics(new Vector3(0, -98, 0), havokPlugin);
             updateLoadingText(2, "Loading physics engine... Done");
         })());
 
@@ -201,7 +195,6 @@ export class SceneBuilder implements ISceneBuilder {
 
             for (const mesh of modelMesh.metadata.meshes) mesh.receiveShadows = true;
             shadowGenerator.addShadowCaster(modelMesh);
-            modelMesh.scaling.setAll(1 / 12.5);
 
             const mmdModel = mmdRuntime.createMmdModel(modelMesh);
             mmdModel.addAnimation(mmdAnimation);
@@ -240,16 +233,96 @@ export class SceneBuilder implements ISceneBuilder {
         });
 
         // if you want ground collision, uncomment following lines.
-        const groundRigidBody = new PhysicsBody(ground, PhysicsMotionType.STATIC, true, scene);
-        groundRigidBody.shape = new PhysicsShapeBox(
-            new Vector3(0, -1, 0),
-            new Quaternion(),
-            new Vector3(100, 2, 100), scene);
+        // const groundRigidBody = new PhysicsBody(ground, PhysicsMotionType.STATIC, true, scene);
+        // groundRigidBody.shape = new PhysicsShapeBox(
+        //     new Vector3(0, -1, 0),
+        //     new Quaternion(),
+        //     new Vector3(100, 2, 100), scene);
 
-        // setting camera gui for text credits to be excluded on post processing
+        const defaultPipeline = new DefaultRenderingPipeline("default", true, scene, [mmdCamera, camera]);
+        defaultPipeline.samples = 4;
+        defaultPipeline.bloomEnabled = true;
+        defaultPipeline.chromaticAberrationEnabled = true;
+        defaultPipeline.chromaticAberration.aberrationAmount = 1;
+        defaultPipeline.fxaaEnabled = true;
+        defaultPipeline.imageProcessingEnabled = true;
+        defaultPipeline.imageProcessing.toneMappingEnabled = true;
+        defaultPipeline.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
+        defaultPipeline.imageProcessing.vignetteWeight = 0.5;
+        defaultPipeline.imageProcessing.vignetteStretch = 0.5;
+        defaultPipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0);
+        defaultPipeline.imageProcessing.vignetteEnabled = true;
+
+        const ground = MeshBuilder.CreateGround("Ground", { width: 50, height: 50, subdivisions: 2, updatable: false }, scene);
+        ground.receiveShadows = true;
+        const groundMaterial = ground.material = new StandardMaterial("GroundMaterial", scene);
+        groundMaterial.diffuseColor = new Color3(0.7, 0.7, 0.7);
+        groundMaterial.specularPower = 128;
+        const groundReflectionTexture = groundMaterial.reflectionTexture = new MirrorTexture("MirrorTexture", 1024, scene, true);
+        groundReflectionTexture.mirrorPlane = Plane.FromPositionAndNormal(ground.position, ground.getFacetNormal(0).scale(-1));
+        groundReflectionTexture.renderList = [...modelMesh.metadata.meshes];
+        groundReflectionTexture.level = 0.45;
+        ground.parent = modelMesh;
+
         const guiCamera = new ArcRotateCamera("GUICamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new Vector3(0, 20, 0), scene);
         guiCamera.layerMask = 0x10000000;
         scene.activeCameras = [mmdCamera, guiCamera];
+
+        // switch camera when double click
+        let lastClickTime = -Infinity;
+        canvas.onclick = (): void => {
+            const currentTime = performance.now();
+            if (500 < currentTime - lastClickTime) {
+                lastClickTime = currentTime;
+                return;
+            }
+            lastClickTime = -Infinity;
+
+            if (scene.activeCameras[0] === mmdCamera) scene.activeCameras = [camera, guiCamera];
+            else scene.activeCameras = [mmdCamera, guiCamera];
+        };
+
+        // if you want to use inspector, uncomment following line.
+        //Inspector.Show(scene, {});
+
+        // webxr experience for AR
+        const webXrExperience = await scene.createDefaultXRExperienceAsync({
+            uiOptions: {
+                sessionMode: "immersive-ar",
+                referenceSpaceType: "local-floor"
+            },
+            floorMeshes: [ground] /* Array of meshes to be used as landing points */,
+            teleportationOptions: {
+                // Options to pass to the teleportation module
+            }
+        });
+
+        if (webXrExperience.baseExperience !== undefined) {
+
+            //const featureManager = webXrExperience.baseExperience.featuresManager;
+            const sessionManager = webXrExperience.baseExperience.sessionManager;
+
+            sessionManager.onXRFrameObservable.addOnce(() => {
+                defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
+            });
+            sessionManager.worldScalingFactor = 15;
+
+            sessionManager.onXRSessionInit.add(() => {
+                scene.clearColor = new Color4(0, 0, 0, 0);
+                shadowOnlyMaterial.alpha = 0.2;
+                groundMaterial.alpha = 0;
+                mmdRuntime.playAnimation();
+                scene.activeCameras = [webXrExperience.baseExperience.camera, guiCamera];
+            });
+
+            sessionManager.onXRSessionEnded.add(() => {
+                scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
+                groundMaterial.alpha = 0;
+                groundMaterial.alpha = 1;
+                if (scene.activeCameras[0] === mmdCamera) scene.activeCameras = [camera, guiCamera];
+                else scene.activeCameras = [mmdCamera, guiCamera];
+            });
+        }
 
         // the text on the gui
         const advancedTexture = AdvancedDynamicTexture.CreateFullscreenUI("UI", true, scene, Texture.BILINEAR_SAMPLINGMODE, true);
@@ -265,115 +338,6 @@ export class SceneBuilder implements ISceneBuilder {
         textblock.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         textblock.color = "black";
         advancedTexture.addControl(textblock);
-
-        // switch camera when double click
-        let animatedCamera = true;
-        let lastClickTime = -Infinity;
-        canvas.onclick = (): void => {
-            const currentTime = performance.now();
-            if (500 < currentTime - lastClickTime) {
-                lastClickTime = currentTime;
-                return;
-            }
-
-            lastClickTime = -Infinity;
-
-            if (animatedCamera) {
-                scene.activeCameras = [camera, guiCamera];
-                animatedCamera = false;
-            } else {
-                scene.activeCameras = [mmdCamera, guiCamera];
-                animatedCamera = true;
-            }
-        };
-
-        // if you want to use inspector, uncomment following line.
-        Inspector.Show(scene, { });
-
-        mmdRuntime.seekAnimation(0, true);
-
-        const defaultPipeline = new DefaultRenderingPipeline("default", true, scene, [mmdCamera, camera]);
-        // defaultPipeline.samples = 4;
-        defaultPipeline.bloomEnabled = true;
-        defaultPipeline.chromaticAberrationEnabled = true;
-        defaultPipeline.chromaticAberration.aberrationAmount = 1;
-        defaultPipeline.fxaaEnabled = true;
-        defaultPipeline.imageProcessingEnabled = true;
-        defaultPipeline.imageProcessing.toneMappingEnabled = true;
-        defaultPipeline.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
-        defaultPipeline.imageProcessing.vignetteWeight = 0.5;
-        defaultPipeline.imageProcessing.vignetteStretch = 0.5;
-        defaultPipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0);
-        defaultPipeline.imageProcessing.vignetteEnabled = true;
-
-        // webxr experience for AR
-        const webXrExperience = await scene.createDefaultXRExperienceAsync({
-            uiOptions: {
-                sessionMode: "immersive-ar",
-                referenceSpaceType: "local-floor"
-            },
-            floorMeshes: [ground] /* Array of meshes to be used as landing points */,
-            teleportationOptions: {
-                // Options to pass to the teleportation module
-            }
-        });
-
-
-        if (webXrExperience.baseExperience !== undefined) {
-
-            const featureManager = webXrExperience.baseExperience.featuresManager;
-            const sessionManager = webXrExperience.baseExperience.sessionManager;
-
-            featureManager.enableFeature(WebXRLayers, "latest", {
-                preferMultiviewOnInit: false
-            }, true, false);
-
-            featureManager.enableFeature(WebXRMeshDetector, "latest", {
-                doNotRemoveMeshesOnSessionEnded: false,
-                generateMeshes: false}, true, false);
-
-            sessionManager.onXRFrameObservable.addOnce(() => {
-                defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
-                if (weXRmesh.isCompatible()) {
-                    ground.visibility = 0;
-                    weXRmesh.attach(true);
-                }
-            });
-
-            // sessionManager.worldScalingFactor = 15;
-
-            sessionManager.onXRSessionInit.add(() => {
-                scene.clearColor = new Color4(0, 0, 0, 0);
-                shadowOnlyMaterial.alpha = 0.2;
-                mmdRuntime.playAnimation();
-                scene.activeCameras = [webXrExperience.baseExperience.camera, guiCamera];
-            });
-
-            sessionManager.onXRSessionEnded.add(() => {
-                scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
-                shadowOnlyMaterial.alpha = 0.4;
-                if (animatedCamera) {
-                    scene.activeCameras = [camera, guiCamera];
-                    animatedCamera = false;
-                } else {
-                    scene.activeCameras = [mmdCamera, guiCamera];
-                    animatedCamera = true;
-                }
-            });
-
-            const weXRmesh = new WebXRMeshDetector(sessionManager, {doNotRemoveMeshesOnSessionEnded: false, generateMeshes: true});
-
-            weXRmesh.onMeshAddedObservable.add((meshData) => {
-                meshData.mesh!.material = shadowOnlyMaterial;
-                meshData.mesh!.receiveShadows = true;
-            });
-
-            // weXRmesh.onMeshUpdatedObservable.add((meshData) => {
-            //     meshData.mesh!.material = shadowOnlyMaterial;
-            //     meshData.mesh!.receiveShadows = true;
-
-            // });
-        }
 
         return scene;
     }
