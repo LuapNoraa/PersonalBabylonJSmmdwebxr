@@ -1,26 +1,8 @@
-## babylon-mmd-template
+Experimenting with BabylonJS
 
-Best practice for using babylon-mmd.
+clone from https://github.com/noname0310/babylon-mmd-template
 
-Implement and build high-quality mmd in the most optimized way possible with Babylon.js.
+I don't know how to use github or vscode, i just want to see anime characters dancing in augmented reality
 
-**If you want to use babylon-mmd, fork this repository could be a good starting point!**
-
-## Build Settings
-
-- typescript
-- webpack (only resolve html template, typescript, and static files)
-- Babylon.js (with es6 module tree shaking applied)
-- eslint (Babyon.js coding style)
-
-## Details
-
-- Run it with `npm i` & `npm start`
-
-- It will do the eslint fix for you on save
-
-- All code is written in sceneBuilder.ts
-
-- For Add assets put them in the res folder and request them as "res/{assetpath}"
-
-- The sceneBuilder includes mmd sample code using webXR (See the comments in the code for a detailed explanation)
+I mainly did this for the Meta Quest 3, but it should work on some phones as well
+https://luapnoraa.github.io/PersonalBabylonJSmmdwebxr/dist/
