@@ -43,6 +43,6 @@
         "@babylonjs/loaders": "9.37.2",
         "@babylonjs/materials": "9.32.0",
         "babylon-mmd": "1.3.0",
-        "babylonjs-gltf2interface": "9.30.0"
+        "babylonjs-gltf2interface": "9.29.0"
     }
 }
