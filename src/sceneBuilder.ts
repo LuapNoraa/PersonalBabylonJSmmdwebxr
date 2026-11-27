@@ -21,6 +21,8 @@ import "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeCameraAnimation";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation";
 import "@babylonjs/loaders";
+import "@babylonjs/core/XR/features/WebXRLayers.js";
+import "babylon-mmd/esm/Loader/mmdModelLoader";
 
 import { ImageProcessingConfiguration, MeshBuilder, MirrorTexture, Plane, StandardMaterial, Texture } from "@babylonjs/core";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
@@ -36,7 +38,8 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
 import { Scene } from "@babylonjs/core/scene";
-import { WebXRFeatureName } from "@babylonjs/core/XR/webXRFeaturesManager";
+//import { WebXRFeatureName } from "@babylonjs/core/XR/webXRFeaturesManager";
+import { WebXRSessionManager } from "@babylonjs/core/XR/webXRSessionManager";
 import { AdvancedDynamicTexture, Control, TextBlock } from "@babylonjs/gui/2D";
 import havokPhysics from "@babylonjs/havok";
 import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
@@ -48,6 +51,8 @@ import { StreamAudioPlayer } from "babylon-mmd/esm/Runtime/Audio/streamAudioPlay
 import { MmdCamera } from "babylon-mmd/esm/Runtime/mmdCamera";
 import type { MmdMesh } from "babylon-mmd/esm/Runtime/mmdMesh";
 import { MmdRuntime } from "babylon-mmd/esm/Runtime/mmdRuntime";
+import { MmdStandardMaterialProxy } from
+    "babylon-mmd/esm/Runtime/mmdStandardMaterialProxy";
 import { MmdPhysics } from "babylon-mmd/esm/Runtime/Physics/mmdPhysics";
 import { MmdPlayerControl } from "babylon-mmd/esm/Runtime/Util/mmdPlayerControl";
 
@@ -196,7 +201,10 @@ export class SceneBuilder implements ISceneBuilder {
             for (const mesh of modelMesh.metadata.meshes) mesh.receiveShadows = true;
             shadowGenerator.addShadowCaster(modelMesh);
 
-            const mmdModel = mmdRuntime.createMmdModel(modelMesh, { trimMetadata: false });
+            const mmdModel = mmdRuntime.createMmdModel(modelMesh, {
+                trimMetadata: false,
+                materialProxyConstructor: MmdStandardMaterialProxy
+            });
             const modelAnimationHandle = mmdModel.createRuntimeAnimation(mmdAnimation);
             mmdModel.setRuntimeAnimation(modelAnimationHandle);
 
@@ -288,47 +296,82 @@ export class SceneBuilder implements ISceneBuilder {
         // if you want to use inspector, uncomment following line.
         //Inspector.Show(scene, {});
 
-        // webxr experience for AR
-        const webXrExperience = await scene.createDefaultXRExperienceAsync({
-            uiOptions: {
-                sessionMode: "immersive-ar",
-                referenceSpaceType: "local-floor"
-            },
-            floorMeshes: [ground] /* Array of meshes to be used as landing points */,
-            teleportationOptions: {
-                // Options to pass to the teleportation module
+        // WebXR experience for AR (optional)
+        const immersiveArSupported =
+            await WebXRSessionManager.IsSessionSupportedAsync("immersive-ar");
+
+        if (immersiveArSupported) {
+            try {
+                const webXrExperience = await scene.createDefaultXRExperienceAsync({
+                    uiOptions: {
+                        sessionMode: "immersive-ar",
+                        referenceSpaceType: "local-floor"
+                    },
+                    floorMeshes: [ground]
+                });
+
+                console.info("[WebXR] Immersive AR initialized.");
+
+                // const featuresManager =
+                //     webXrExperience.baseExperience.featuresManager;
+
+                // Enable XR Layers only if required and supported.
+                // Keep this disabled for the initial WebGL performance baseline.
+                // featuresManager.enableFeature(WebXRFeatureName.LAYERS, "stable");
+
+                const sessionManager =
+                    webXrExperience.baseExperience.sessionManager;
+
+                sessionManager.onXRFrameObservable.addOnce(() => {
+                    defaultPipeline.addCamera(
+                        webXrExperience.baseExperience.camera
+                    );
+                });
+
+                sessionManager.worldScalingFactor = 15;
+
+                sessionManager.onXRSessionInit.add(() => {
+                    scene.clearColor = new Color4(0, 0, 0, 0);
+                    shadowOnlyMaterial.alpha = 0.2;
+                    groundMaterial.alpha = 0;
+                    mmdRuntime.playAnimation();
+
+                    scene.activeCameras = [
+                        webXrExperience.baseExperience.camera,
+                        guiCamera
+                    ];
+                });
+
+                sessionManager.onXRSessionEnded.add(() => {
+                    scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
+                    shadowOnlyMaterial.alpha = 1;
+                    groundMaterial.alpha = 1;
+
+                    if (scene.activeCameras[0] === mmdCamera) {
+                        scene.activeCameras = [camera, guiCamera];
+                    } else {
+                        scene.activeCameras = [mmdCamera, guiCamera];
+                    }
+                });
+
+            } catch (error) {
+                console.warn(
+                    "[WebXR] AR initialization failed; continuing without XR.",
+                    error
+                );
             }
-        });
-
-        if (webXrExperience.baseExperience !== undefined) {
-
-            const featuresManager = webXrExperience.baseExperience.featuresManager;
-            // Babylon's WebGPU XR path uses XRProjectionLayer instead of XRWebGLLayer.
-            featuresManager.enableFeature(WebXRFeatureName.LAYERS, "stable");
-
-            const sessionManager = webXrExperience.baseExperience.sessionManager;
-
-            sessionManager.onXRFrameObservable.addOnce(() => {
-                defaultPipeline.addCamera(webXrExperience.baseExperience.camera);
-            });
-            sessionManager.worldScalingFactor = 15;
-
-            sessionManager.onXRSessionInit.add(() => {
-                scene.clearColor = new Color4(0, 0, 0, 0);
-                shadowOnlyMaterial.alpha = 0.2;
-                groundMaterial.alpha = 0;
-                mmdRuntime.playAnimation();
-                scene.activeCameras = [webXrExperience.baseExperience.camera, guiCamera];
-            });
-
-            sessionManager.onXRSessionEnded.add(() => {
-                scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
-                groundMaterial.alpha = 0;
-                groundMaterial.alpha = 1;
-                if (scene.activeCameras[0] === mmdCamera) scene.activeCameras = [camera, guiCamera];
-                else scene.activeCameras = [mmdCamera, guiCamera];
-            });
+        } else {
+            console.info(
+                "[WebXR] Immersive AR unavailable; continuing without XR."
+            );
         }
+
+        console.info("[MMD material check]", {
+            materialCount: modelMesh.metadata.materials?.length,
+            meshCount: modelMesh.metadata.meshes?.length,
+            meshesWithMaterials: modelMesh.metadata.meshes
+                .filter(mesh => mesh.material !== null).length
+        });
 
         // the text on the gui
         const advancedTexture = AdvancedDynamicTexture.CreateFullscreenUI("UI", true, scene, Texture.BILINEAR_SAMPLINGMODE, true);
