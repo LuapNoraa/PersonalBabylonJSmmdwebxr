@@ -41,7 +41,6 @@ import { AdvancedDynamicTexture, Control, TextBlock } from "@babylonjs/gui/2D";
 import havokPhysics from "@babylonjs/havok";
 import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
 import type { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
-import type { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
 import type { BpmxLoader } from "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 import { BvmdLoader } from "babylon-mmd/esm/Loader/Optimized/bvmdLoader";
 import { SdefInjector } from "babylon-mmd/esm/Loader/sdefInjector";
@@ -53,6 +52,7 @@ import { MmdPhysics } from "babylon-mmd/esm/Runtime/Physics/mmdPhysics";
 import { MmdPlayerControl } from "babylon-mmd/esm/Runtime/Util/mmdPlayerControl";
 
 import type { ISceneBuilder } from "./baseRuntime";
+import { PerformanceProfiler } from "./performanceProfiler";
 
 export class SceneBuilder implements ISceneBuilder {
     public async build(canvas: HTMLCanvasElement, engine: AbstractEngine): Promise<Scene> {
@@ -62,8 +62,6 @@ export class SceneBuilder implements ISceneBuilder {
         // get bpmx loader and set some configurations.
         const bpmxLoader = SceneLoader.GetPluginForExtension(".bpmx") as BpmxLoader;
         bpmxLoader.loggingEnabled = true;
-        const materialBuilder = bpmxLoader.materialBuilder as MmdStandardMaterialBuilder;
-        materialBuilder;
         // if you want override texture loading, uncomment following lines.
         // materialBuilder.loadDiffuseTexture = (): void => { /* do nothing */ };
         // materialBuilder.loadSphereTexture = (): void => { /* do nothing */ };
@@ -74,6 +72,8 @@ export class SceneBuilder implements ISceneBuilder {
 
         const scene = new Scene(engine);
         scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
+        window.mmdProfiler = new PerformanceProfiler(scene);
+
 
         const mmdRoot = new TransformNode("mmdRoot", scene);
         mmdRoot.position.z = 20;
@@ -162,11 +162,10 @@ export class SceneBuilder implements ISceneBuilder {
             (event) => updateLoadingText(0, `Loading motion... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`))
         );
 
-        // you need to get this file by yourself from https://www.deviantart.com/sanmuyyb/art/YYB-Hatsune-Miku-10th-DL-702119716
         promises.push(SceneLoader.ImportMeshAsync(
             undefined,
             "res/private_test/model/",
-            "YYB Hatsune Miku_10th.bpmx",
+            "YYB Hatsune Miku_NT_1.0ver.bpmx",
             scene,
             (event) => updateLoadingText(1, `Loading model... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`)
         ));

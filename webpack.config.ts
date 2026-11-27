@@ -15,7 +15,7 @@ export default (env: any): webpack.Configuration & { devServer?: WebpackDevServe
     optimization: {
         minimize: env.production
     },
-    cache: true,
+    cache: false,
     module: {
         rules: [
             {
@@ -25,6 +25,13 @@ export default (env: any): webpack.Configuration & { devServer?: WebpackDevServe
             {
                 test: /\.html$/,
                 loader: "html-loader"
+            },
+            {
+                test: /\.m?js$/,
+                include: /node_modules[\\/]babylon-mmd[\\/]/,
+                resolve: {
+                    fullySpecified: false
+                    }
             }
         ]
     },
