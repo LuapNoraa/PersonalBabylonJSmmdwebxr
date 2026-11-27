@@ -20,11 +20,20 @@ window.onload = (): void => {
         doNotHandleTouchAction: true,
         doNotHandleContextLost: true,
         audioEngine: false
-    }, true);
+    }, false);
 
-    BaseRuntime.Create({
+    void BaseRuntime.Create({
         canvas,
         engine,
         sceneBuilder: new SceneBuilder()
-    }).then(runtime => runtime.run());
+    }).then((runtime) => {
+        runtime.run();
+    }).catch((error: unknown) => {
+        console.error("Failed to initialize the MMD WebXR scene.", error);
+        const errorMessage = document.createElement("pre");
+        errorMessage.style.whiteSpace = "pre-wrap";
+        errorMessage.style.padding = "1rem";
+        errorMessage.textContent = error instanceof Error ? error.message : String(error);
+        document.body.appendChild(errorMessage);
+    });
 };
