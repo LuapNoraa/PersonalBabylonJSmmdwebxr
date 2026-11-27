@@ -5,6 +5,8 @@ import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent";
 // for use WebXR we need to import following two modules.
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/core/Materials/Node/Blocks";
+// WebGPU-backed WebXR requires the WebXR Layers feature to be registered.
+import "@babylonjs/core/XR/features/WebXRLayers.js";
 // if your model has .tga texture, uncomment following line.
 // import "@babylonjs/core/Materials/Textures/Loaders/tgaTextureLoader";
 // for load .bpmx file, we need to import following module.
@@ -34,6 +36,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
 import { Scene } from "@babylonjs/core/scene";
+import { WebXRFeatureName } from "@babylonjs/core/XR/webXRFeaturesManager";
 import { AdvancedDynamicTexture, Control, TextBlock } from "@babylonjs/gui/2D";
 import havokPhysics from "@babylonjs/havok";
 import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
@@ -299,7 +302,10 @@ export class SceneBuilder implements ISceneBuilder {
 
         if (webXrExperience.baseExperience !== undefined) {
 
-            //const featureManager = webXrExperience.baseExperience.featuresManager;
+            const featuresManager = webXrExperience.baseExperience.featuresManager;
+            // Babylon's WebGPU XR path uses XRProjectionLayer instead of XRWebGLLayer.
+            featuresManager.enableFeature(WebXRFeatureName.LAYERS, "stable");
+
             const sessionManager = webXrExperience.baseExperience.sessionManager;
 
             sessionManager.onXRFrameObservable.addOnce(() => {
