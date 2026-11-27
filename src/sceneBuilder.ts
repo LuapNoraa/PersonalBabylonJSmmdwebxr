@@ -33,9 +33,8 @@ export class SceneBuilder implements ISceneBuilder {
         bpmxLoader.loggingEnabled = false;
 
         const scene = new Scene(engine);
-        // A solid black clear is inexpensive on Quest and is replaced by transparent
-        // clearing while the immersive AR session is active.
-        scene.clearColor = new Color4(0, 0, 0, 1);
+        // Preserve the existing desktop preview background; AR uses transparent clearing.
+        scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
 
         const mmdRoot = new TransformNode("mmdRoot", scene);
         mmdRoot.position.z = 20;
@@ -209,7 +208,7 @@ export class SceneBuilder implements ISceneBuilder {
             });
 
             sessionManager.onXRSessionEnded.add(() => {
-                scene.clearColor = new Color4(0, 0, 0, 1);
+                scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
                 if (scene.activeCameras[0] === mmdCamera) {
                     scene.activeCameras = [camera, guiCamera];
                 } else {
