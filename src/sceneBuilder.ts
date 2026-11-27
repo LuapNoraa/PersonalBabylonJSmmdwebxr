@@ -183,7 +183,7 @@ export class SceneBuilder implements ISceneBuilder {
             const sessionManager = webXrExperience.baseExperience.sessionManager;
             sessionManager.worldScalingFactor = 15;
 
-            sessionManager.onXRSessionInit.add((session) => {
+            sessionManager.onXRSessionInit.add(() => {
                 scene.clearColor = new Color4(0, 0, 0, 0);
                 mmdRuntime.playAnimation();
                 scene.activeCameras = [webXrExperience.baseExperience.camera, guiCamera];
