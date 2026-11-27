@@ -20,7 +20,6 @@ export class BaseRuntime {
     private constructor(params: BaseRuntimeInitParams) {
         this._canvas = params.canvas;
         this._engine = params.engine;
-
         this._scene = null!;
         this._onTick = null!;
     }
@@ -33,14 +32,14 @@ export class BaseRuntime {
     }
 
     public run(): void {
-        const engine = this._engine;
-
         window.addEventListener("resize", this._onResize);
-        engine.runRenderLoop(this._onTick);
+        this._engine.runRenderLoop(this._onTick);
     }
 
     public dispose(): void {
         window.removeEventListener("resize", this._onResize);
+        this._engine.stopRenderLoop(this._onTick);
+        this._scene.dispose();
         this._engine.dispose();
     }
 
