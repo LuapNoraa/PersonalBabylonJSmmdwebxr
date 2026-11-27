@@ -17,7 +17,6 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import type { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
-import type { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
 import type { BpmxLoader } from "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 import { BvmdLoader } from "babylon-mmd/esm/Loader/Optimized/bvmdLoader";
 import { StreamAudioPlayer } from "babylon-mmd/esm/Runtime/Audio/streamAudioPlayer";
@@ -32,9 +31,6 @@ export class SceneBuilder implements ISceneBuilder {
     public async build(_canvas: HTMLCanvasElement, engine: AbstractEngine): Promise<Scene> {
         const bpmxLoader = SceneLoader.GetPluginForExtension(".bpmx") as BpmxLoader;
         bpmxLoader.loggingEnabled = false;
-
-        const materialBuilder = bpmxLoader.materialBuilder as MmdStandardMaterialBuilder;
-        void materialBuilder;
 
         const scene = new Scene(engine);
         // A solid black clear is inexpensive on Quest and is replaced by transparent
@@ -128,9 +124,11 @@ export class SceneBuilder implements ISceneBuilder {
 
         modelMesh.parent = mmdRoot;
 
-        const mmdModel = mmdRuntime.createMmdModel(modelMesh);
+        const mmdModel = mmdRuntime.createMmdModel(modelMesh, { buildPhysics: false });
         mmdModel.addAnimation(mmdAnimation);
         mmdModel.setAnimation("motion");
+        // Preserve playback in the desktop preview; XR entry also re-syncs playback.
+        mmdRuntime.playAnimation();
 
         // This scene has no picking-based gameplay. Avoid pointer picking, but keep
         // normal frustum culling and all animated bone/world-matrix updates intact.
@@ -177,23 +175,26 @@ export class SceneBuilder implements ISceneBuilder {
                 sessionMode: "immersive-ar",
                 referenceSpaceType: "local-floor"
             },
-            disableTeleportation: true
+            disableTeleportation: true,
+            disableNearInteraction: true,
+            disableHandTracking: true
         });
 
         if (webXrExperience.baseExperience !== undefined) {
             const sessionManager = webXrExperience.baseExperience.sessionManager;
+            sessionManager.worldScalingFactor = 15;
 
-            sessionManager.onXRSessionInit.add(() => {
+            sessionManager.onXRSessionInit.add((session) => {
                 scene.clearColor = new Color4(0, 0, 0, 0);
                 mmdRuntime.playAnimation();
                 scene.activeCameras = [webXrExperience.baseExperience.camera, guiCamera];
 
                 // Quest Browser commonly starts at 72Hz. Request 72Hz explicitly
                 // when the WebXR session exposes the frame-rate control API.
-                const xrSession = sessionManager.session as unknown as {
+                const xrSession = session as unknown as {
                     supportedFrameRates?: ArrayLike<number>;
                     updateTargetFrameRate?: (frameRate: number) => Promise<void>;
-                } | null;
+                };
 
                 if (xrSession?.supportedFrameRates && xrSession.updateTargetFrameRate) {
                     const targetRate = Array.from(xrSession.supportedFrameRates)
