@@ -188,14 +188,17 @@ export class SceneBuilder implements ISceneBuilder {
                 mmdRuntime.playAnimation();
                 scene.activeCameras = [webXrExperience.baseExperience.camera, guiCamera];
 
-                // Quest Browser commonly starts at 72Hz. Request 72Hz explicitly
-                // when the WebXR session exposes the frame-rate control API.
-                const xrSession = session as unknown as {
+            });
+
+            // Use the first real XR frame before requesting a refresh-rate change.
+            // Quest Browser defaults to 72Hz, and the supported-rate API is optional.
+            sessionManager.onXRFrameObservable.addOnce((frame) => {
+                const xrSession = frame.session as unknown as {
                     supportedFrameRates?: ArrayLike<number>;
                     updateTargetFrameRate?: (frameRate: number) => Promise<void>;
                 };
 
-                if (xrSession?.supportedFrameRates && xrSession.updateTargetFrameRate) {
+                if (xrSession.supportedFrameRates && xrSession.updateTargetFrameRate) {
                     const targetRate = Array.from(xrSession.supportedFrameRates)
                         .find((rate) => Math.abs(rate - 72) < 0.01);
 
