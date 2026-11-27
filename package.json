@@ -41,7 +41,7 @@
         "@babylonjs/gui": "9.38.0",
         "@babylonjs/havok": "1.3.14",
         "@babylonjs/loaders": "9.37.2",
-        "@babylonjs/materials": "9.32.0",
+        "@babylonjs/materials": "9.33.0",
         "babylon-mmd": "1.3.0",
         "babylonjs-gltf2interface": "9.29.0"
     }
