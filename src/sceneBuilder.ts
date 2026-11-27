@@ -138,8 +138,6 @@ export class SceneBuilder implements ISceneBuilder {
 
         // play before loading. this will cause the audio to play first before all assets are loaded.
         // playing the audio first can help ease the user's patience
-        mmdRuntime.playAnimation();
-
         // create youtube like player control
         const mmdPlayerControl = new MmdPlayerControl(scene, mmdRuntime, audioPlayer);
         mmdPlayerControl.showPlayerControl();
@@ -189,9 +187,9 @@ export class SceneBuilder implements ISceneBuilder {
         // hide loading screen
         scene.onAfterRenderObservable.addOnce(() => engine.hideLoadingUI());
 
-        mmdRuntime.setCamera(mmdCamera);
-        mmdCamera.addAnimation(mmdAnimation);
-        mmdCamera.setAnimation("motion");
+        const cameraAnimationHandle = mmdCamera.createRuntimeAnimation(mmdAnimation);
+        mmdCamera.setRuntimeAnimation(cameraAnimationHandle);
+        mmdRuntime.addAnimatable(mmdCamera);
 
         {
             modelMesh.parent = mmdRoot;
@@ -199,9 +197,12 @@ export class SceneBuilder implements ISceneBuilder {
             for (const mesh of modelMesh.metadata.meshes) mesh.receiveShadows = true;
             shadowGenerator.addShadowCaster(modelMesh);
 
-            const mmdModel = mmdRuntime.createMmdModel(modelMesh);
-            mmdModel.addAnimation(mmdAnimation);
-            mmdModel.setAnimation("motion");
+            const mmdModel = mmdRuntime.createMmdModel(modelMesh, { trimMetadata: false });
+            const modelAnimationHandle = mmdModel.createRuntimeAnimation(mmdAnimation);
+            mmdModel.setRuntimeAnimation(modelAnimationHandle);
+
+            // Start the existing preview after both the model and camera tracks are bound.
+            void mmdRuntime.playAnimation();
 
             // make sure directional light follow the model
             const bodyBone = mmdModel.runtimeBones.find((bone) => bone.name === "センター");
