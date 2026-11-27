@@ -5,6 +5,8 @@ import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent";
 // for use WebXR we need to import following two modules.
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/core/Materials/Node/Blocks";
+// WebGPU-backed WebXR requires the WebXR Layers feature to be registered.
+import "@babylonjs/core/XR/features/WebXRLayers.js";
 // if your model has .tga texture, uncomment following line.
 // import "@babylonjs/core/Materials/Textures/Loaders/tgaTextureLoader";
 // for load .bpmx file, we need to import following module.
@@ -34,6 +36,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
 import { Scene } from "@babylonjs/core/scene";
+import { WebXRFeatureName } from "@babylonjs/core/XR/webXRFeaturesManager";
 import { AdvancedDynamicTexture, Control, TextBlock } from "@babylonjs/gui/2D";
 import havokPhysics from "@babylonjs/havok";
 import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
@@ -135,8 +138,6 @@ export class SceneBuilder implements ISceneBuilder {
 
         // play before loading. this will cause the audio to play first before all assets are loaded.
         // playing the audio first can help ease the user's patience
-        mmdRuntime.playAnimation();
-
         // create youtube like player control
         const mmdPlayerControl = new MmdPlayerControl(scene, mmdRuntime, audioPlayer);
         mmdPlayerControl.showPlayerControl();
@@ -186,9 +187,9 @@ export class SceneBuilder implements ISceneBuilder {
         // hide loading screen
         scene.onAfterRenderObservable.addOnce(() => engine.hideLoadingUI());
 
-        mmdRuntime.setCamera(mmdCamera);
-        mmdCamera.addAnimation(mmdAnimation);
-        mmdCamera.setAnimation("motion");
+        const cameraAnimationHandle = mmdCamera.createRuntimeAnimation(mmdAnimation);
+        mmdCamera.setRuntimeAnimation(cameraAnimationHandle);
+        mmdRuntime.addAnimatable(mmdCamera);
 
         {
             modelMesh.parent = mmdRoot;
@@ -196,9 +197,12 @@ export class SceneBuilder implements ISceneBuilder {
             for (const mesh of modelMesh.metadata.meshes) mesh.receiveShadows = true;
             shadowGenerator.addShadowCaster(modelMesh);
 
-            const mmdModel = mmdRuntime.createMmdModel(modelMesh);
-            mmdModel.addAnimation(mmdAnimation);
-            mmdModel.setAnimation("motion");
+            const mmdModel = mmdRuntime.createMmdModel(modelMesh, { trimMetadata: false });
+            const modelAnimationHandle = mmdModel.createRuntimeAnimation(mmdAnimation);
+            mmdModel.setRuntimeAnimation(modelAnimationHandle);
+
+            // Start the existing preview after both the model and camera tracks are bound.
+            void mmdRuntime.playAnimation();
 
             // make sure directional light follow the model
             const bodyBone = mmdModel.runtimeBones.find((bone) => bone.name === "センター");
@@ -299,7 +303,10 @@ export class SceneBuilder implements ISceneBuilder {
 
         if (webXrExperience.baseExperience !== undefined) {
 
-            //const featureManager = webXrExperience.baseExperience.featuresManager;
+            const featuresManager = webXrExperience.baseExperience.featuresManager;
+            // Babylon's WebGPU XR path uses XRProjectionLayer instead of XRWebGLLayer.
+            featuresManager.enableFeature(WebXRFeatureName.LAYERS, "stable");
+
             const sessionManager = webXrExperience.baseExperience.sessionManager;
 
             sessionManager.onXRFrameObservable.addOnce(() => {
