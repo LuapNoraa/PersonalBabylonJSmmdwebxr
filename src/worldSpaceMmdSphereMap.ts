@@ -147,10 +147,6 @@ function patchSphereMapShader(
             code.CUSTOM_FRAGMENT_BEFORE_FOG =
                 fragmentCode.replace(wgslPattern, wgslReplacement);
 
-            console.info(
-                "[WorldSphereMap] Successfully installed three WGSL modes."
-            );
-
             return code;
         }
 
@@ -158,9 +154,9 @@ function patchSphereMapShader(
             code.CUSTOM_FRAGMENT_BEFORE_FOG =
                 fragmentCode.replace(glslPattern, glslReplacement);
 
-            console.info(
-                "[WorldSphereMap] Successfully installed three GLSL modes."
-            );
+            // console.info(
+            //     "[WorldSphereMap] Successfully installed three GLSL modes."
+            // );
 
             return code;
         }
@@ -246,7 +242,7 @@ export async function installWorldSpaceMmdSphereMap(
         );
     }
 
-    console.info(
-        `[WorldSphereMap] Installed. Current mode: ${currentMode}`
-    );
+    // console.info(
+    //     `[WorldSphereMap] Installed. Current mode: ${currentMode}`
+    // );
 }

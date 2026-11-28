@@ -279,8 +279,8 @@ export class SceneBuilder implements ISceneBuilder {
                     cameraToggleButton.hidden = false;
 
                     scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
-                    window.mmdProfiler.exportCsv();
-                    window.mmdProfiler.dispose();
+                    window.mmdProfiler?.exportCsv();
+                    window.mmdProfiler?.dispose();
 
                     scene.activeCameras = [mmdCamera];
                 });

@@ -1,3 +1,5 @@
+import "@babylonjs/core/Engines/Extensions/engine.query";
+
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { WebGPUEngine } from "@babylonjs/core/Engines/webgpuEngine";
@@ -7,12 +9,11 @@ import { BaseRuntime } from "./baseRuntime";
 import { SceneBuilder } from "./sceneBuilder";
 
 
-
 async function createRenderingEngine(canvas: HTMLCanvasElement): Promise<AbstractEngine> {
     let webGpuSupported = false;
     let immersiveArSupported = false;
 
-    const FORCE_WEBGL = false;
+    const FORCE_WEBGL = true;
 
     try {
         webGpuSupported = await WebGPUEngine.IsSupportedAsync;
@@ -31,10 +32,18 @@ async function createRenderingEngine(canvas: HTMLCanvasElement): Promise<Abstrac
     const webGpuXrSupported = WebXRSessionManager.IsWebGPUXRSupported;
 
     if (!FORCE_WEBGL && webGpuSupported && immersiveArSupported && webGpuXrSupported) {
-        const engine = new WebGPUEngine(canvas, { xrCompatible: true });
+        const engine = new WebGPUEngine(canvas, { xrCompatible: true, enableAllFeatures: true });
 
         try {
             await engine.initAsync();
+
+            const gpuTimingSupported =
+                engine.getCaps().timerQuery !== undefined;
+
+            console.info(
+                `[WebGPU] GPU timestamp-query: ${gpuTimingSupported ? "available" : "unavailable"}`
+            );
+
             console.info("Rendering backend: WebGPU (XR-compatible).");
             return engine;
         } catch (error) {
@@ -53,7 +62,7 @@ async function createRenderingEngine(canvas: HTMLCanvasElement): Promise<Abstrac
         }
     }
 
-    return new Engine(canvas, false, {
+    const engine = new Engine(canvas, false, {
         preserveDrawingBuffer: false,
         stencil: false,
         antialias: false,
@@ -64,6 +73,16 @@ async function createRenderingEngine(canvas: HTMLCanvasElement): Promise<Abstrac
         doNotHandleContextLost: true,
         audioEngine: false
     }, false);
+
+    const gpuTimerQuerySupported = Boolean(engine.getCaps().timerQuery);
+
+    console.info(
+        `[WebGL] GPU timer query: ${
+            gpuTimerQuerySupported ? "available" : "unavailable"
+        }`
+    );
+
+    return engine;
 }
 
 async function startApplication(): Promise<void> {

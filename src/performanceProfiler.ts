@@ -22,7 +22,7 @@ type PerfSample = {
 export class PerformanceProfiler {
     private readonly _scene: Scene;
     private readonly _sceneInstrumentation: SceneInstrumentation;
-    private readonly _engineInstrumentation: EngineInstrumentation;
+    private readonly _engineInstrumentation: EngineInstrumentation | undefined;
     private readonly _frameTimes: number[] = [];
     private readonly _samples: PerfSample[] = [];
     private _lastFrameTime = 0;
@@ -40,8 +40,18 @@ export class PerformanceProfiler {
         this._sceneInstrumentation.capturePhysicsTime = true;
         this._sceneInstrumentation.captureActiveMeshesEvaluationTime = true;
 
-        this._engineInstrumentation = new EngineInstrumentation(scene.getEngine());
-        this._engineInstrumentation.captureGPUFrameTime = true;
+        const engine = scene.getEngine();
+
+        if (engine.getCaps().timerQuery) {
+            this._engineInstrumentation = new EngineInstrumentation(engine);
+            this._engineInstrumentation.captureGPUFrameTime = true;
+        } else {
+            this._engineInstrumentation = undefined;
+
+            console.info(
+                "[Profiler] GPU timing unavailable; continuing without GPU measurements."
+            );
+        }
 
         this._observer = scene.onAfterRenderObservable.add(() => this._onFrame());
 
@@ -74,7 +84,7 @@ export class PerformanceProfiler {
         );
 
         const missedFrames = frameTimes.filter((time) => time > 1000 / 72).length;
-        const gpuNanoseconds = this._engineInstrumentation.gpuFrameTimeCounter.current;
+        const gpuNanoseconds = this._engineInstrumentation?.gpuFrameTimeCounter.current ?? 0;
 
         const sample: PerfSample = {
             timestamp: new Date().toISOString(),
@@ -136,7 +146,7 @@ export class PerformanceProfiler {
         }
 
         this._sceneInstrumentation.dispose();
-        this._engineInstrumentation.dispose();
+        this._engineInstrumentation?.dispose();
     }
 }
 
