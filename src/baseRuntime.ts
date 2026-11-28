@@ -36,16 +36,27 @@ export class BaseRuntime {
         const engine = this._engine;
 
         window.addEventListener("resize", this._onResize);
+        document.addEventListener("visibilitychange", this._onVisibilityChange);
         engine.runRenderLoop(this._onTick);
     }
 
     public dispose(): void {
         window.removeEventListener("resize", this._onResize);
+        document.removeEventListener("visibilitychange", this._onVisibilityChange);
         this._engine.dispose();
     }
 
     private readonly _onResize = (): void => {
         this._engine.resize();
+    };
+
+    private readonly _onVisibilityChange = (): void => {
+        // Pause the render loop while hidden to save GPU/battery/thermals.
+        if (document.hidden) {
+            this._engine.stopRenderLoop(this._onTick);
+        } else {
+            this._engine.runRenderLoop(this._onTick);
+        }
     };
 
     private async _initialize(sceneBuilder: ISceneBuilder): Promise<Scene> {

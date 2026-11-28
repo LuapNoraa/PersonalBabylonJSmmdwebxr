@@ -6,9 +6,13 @@ import { WebXRSessionManager } from "@babylonjs/core/XR/webXRSessionManager";
 import { BaseRuntime } from "./baseRuntime";
 import { SceneBuilder } from "./sceneBuilder";
 
+
+
 async function createRenderingEngine(canvas: HTMLCanvasElement): Promise<AbstractEngine> {
     let webGpuSupported = false;
     let immersiveArSupported = false;
+
+    const FORCE_WEBGL = false;
 
     try {
         webGpuSupported = await WebGPUEngine.IsSupportedAsync;
@@ -26,7 +30,7 @@ async function createRenderingEngine(canvas: HTMLCanvasElement): Promise<Abstrac
     // expose the experimental XRGPUBinding projection-layer path.
     const webGpuXrSupported = WebXRSessionManager.IsWebGPUXRSupported;
 
-    if (webGpuSupported && immersiveArSupported && webGpuXrSupported) {
+    if (!FORCE_WEBGL && webGpuSupported && immersiveArSupported && webGpuXrSupported) {
         const engine = new WebGPUEngine(canvas, { xrCompatible: true });
 
         try {
@@ -38,11 +42,15 @@ async function createRenderingEngine(canvas: HTMLCanvasElement): Promise<Abstrac
             console.warn("WebGPU initialization failed; falling back to WebGL.", error);
         }
     } else {
-        console.info("WebGPU XR is unavailable in this browser; using the WebGL XR backend.", {
-            webGpuSupported,
-            immersiveArSupported,
-            webGpuXrSupported
-        });
+        if (FORCE_WEBGL) {
+            console.info("Rendering backend: WebGL (forced for A/B test).");
+        } else {
+            console.info("WebGPU XR is unavailable in this browser; using the WebGL XR backend.", {
+                webGpuSupported,
+                immersiveArSupported,
+                webGpuXrSupported
+            });
+        }
     }
 
     return new Engine(canvas, false, {
@@ -55,7 +63,7 @@ async function createRenderingEngine(canvas: HTMLCanvasElement): Promise<Abstrac
         doNotHandleTouchAction: true,
         doNotHandleContextLost: true,
         audioEngine: false
-    }, true);
+    }, false);
 }
 
 async function startApplication(): Promise<void> {

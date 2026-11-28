@@ -1,7 +1,5 @@
 // for use loading screen, we need to import following module.
 import "@babylonjs/core/Loading/loadingScreen";
-// for cast shadow, we need to import following module.
-import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent";
 // for use WebXR we need to import following two modules.
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/core/Materials/Node/Blocks";
@@ -15,73 +13,60 @@ import "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
 // import "babylon-mmd/esm/Loader/pmxLoader";
 // if you want to use .pmd file, uncomment following line.
 // import "babylon-mmd/esm/Loader/pmdLoader";
-// for render outline, we need to import following module.
-// import "babylon-mmd/esm/Loader/mmdOutlineRenderer";
 // for play `MmdAnimation` we need to import following two modules.
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeCameraAnimation";
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation";
 import "@babylonjs/loaders";
-import "@babylonjs/core/XR/features/WebXRLayers.js";
 import "babylon-mmd/esm/Loader/mmdModelLoader";
 
-import { ImageProcessingConfiguration, MeshBuilder, MirrorTexture, Plane, StandardMaterial, Texture } from "@babylonjs/core";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
-import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
-import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader";
+import { LoadAssetContainerAsync} from "@babylonjs/core/Loading/sceneLoader";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
-import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
-import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
-import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
+import { RegisterColorCurves } from "@babylonjs/core/pure";
 import { Scene } from "@babylonjs/core/scene";
-//import { WebXRFeatureName } from "@babylonjs/core/XR/webXRFeaturesManager";
+import { WebXRFeatureName } from "@babylonjs/core/XR/webXRFeaturesManager";
 import { WebXRSessionManager } from "@babylonjs/core/XR/webXRSessionManager";
-import { AdvancedDynamicTexture, Control, TextBlock } from "@babylonjs/gui/2D";
-import havokPhysics from "@babylonjs/havok";
-import { ShadowOnlyMaterial } from "@babylonjs/materials/shadowOnly/shadowOnlyMaterial";
+// import { ShowInspector } from "@babylonjs/inspector";
+import { GetMmdWasmInstance, MmdWasmInstanceTypeMR, MmdWasmRuntime } from "babylon-mmd";
 import type { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
-import type { BpmxLoader } from "babylon-mmd/esm/Loader/Optimized/bpmxLoader";
+import { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
 import { BvmdLoader } from "babylon-mmd/esm/Loader/Optimized/bvmdLoader";
-import { SdefInjector } from "babylon-mmd/esm/Loader/sdefInjector";
+// import { SdefInjector } from "babylon-mmd/esm/Loader/sdefInjector";
 import { StreamAudioPlayer } from "babylon-mmd/esm/Runtime/Audio/streamAudioPlayer";
 import { MmdCamera } from "babylon-mmd/esm/Runtime/mmdCamera";
 import type { MmdMesh } from "babylon-mmd/esm/Runtime/mmdMesh";
-import { MmdRuntime } from "babylon-mmd/esm/Runtime/mmdRuntime";
 import { MmdStandardMaterialProxy } from
     "babylon-mmd/esm/Runtime/mmdStandardMaterialProxy";
-import { MmdPhysics } from "babylon-mmd/esm/Runtime/Physics/mmdPhysics";
 import { MmdPlayerControl } from "babylon-mmd/esm/Runtime/Util/mmdPlayerControl";
 
 import type { ISceneBuilder } from "./baseRuntime";
 import { PerformanceProfiler } from "./performanceProfiler";
+import {
+    installWorldSpaceMmdSphereMap,
+    type MmdSphereMapMode,
+    setMmdSphereMapMode} from "./worldSpaceMmdSphereMap";
 
 export class SceneBuilder implements ISceneBuilder {
     public async build(canvas: HTMLCanvasElement, engine: AbstractEngine): Promise<Scene> {
         // for apply SDEF on shadow, outline, depth rendering
-        SdefInjector.OverrideEngineCreateEffect(engine);
+        // SdefInjector.OverrideEngineCreateEffect(engine);
 
-        // get bpmx loader and set some configurations.
-        const bpmxLoader = SceneLoader.GetPluginForExtension(".bpmx") as BpmxLoader;
-        bpmxLoader.loggingEnabled = true;
-        // if you want override texture loading, uncomment following lines.
-        // materialBuilder.loadDiffuseTexture = (): void => { /* do nothing */ };
-        // materialBuilder.loadSphereTexture = (): void => { /* do nothing */ };
-        // materialBuilder.loadToonTexture = (): void => { /* do nothing */ };
-
-        // if you need outline rendering, comment out following line.
-        // materialBuilder.loadOutlineRenderingProperties = (): void => { /* do nothing */ };
+        RegisterColorCurves();
 
         const scene = new Scene(engine);
         scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
-        window.mmdProfiler = new PerformanceProfiler(scene);
+        (window as Window & { debugScene?: Scene }).debugScene = scene;
+
+        // ShowInspector(scene);
 
 
         const mmdRoot = new TransformNode("mmdRoot", scene);
-        mmdRoot.position.z = 20;
+        mmdRoot.position.z = 2.5;
 
         // mmd camera for play mmd camera animation
         const mmdCamera = new MmdCamera("mmdCamera", new Vector3(0, 10, 0), scene);
@@ -89,7 +74,9 @@ export class SceneBuilder implements ISceneBuilder {
         mmdCamera.minZ = 1;
         mmdCamera.parent = mmdRoot;
 
+        // optional manual orbit camera (kept for desktop preview; not active by default)
         const camera = new ArcRotateCamera("arcRotateCamera", 0, 0, 45, new Vector3(0, 10, 1), scene);
+        camera.parent = mmdRoot;
         camera.maxZ = 1000;
         camera.minZ = 0.1;
         camera.setPosition(new Vector3(0, 10, -45));
@@ -104,45 +91,20 @@ export class SceneBuilder implements ISceneBuilder {
 
         const directionalLight = new DirectionalLight("DirectionalLight", new Vector3(0.5, -1, 1), scene);
         directionalLight.intensity = 0.6;
-        // set frustum size manually for optimize shadow rendering
-        directionalLight.autoCalcShadowZBounds = false;
-        directionalLight.autoUpdateExtends = false;
-        directionalLight.shadowMaxZ = 20;
-        directionalLight.shadowMinZ = -20;
-        directionalLight.orthoTop = 18;
-        directionalLight.orthoBottom = -3;
-        directionalLight.orthoLeft = -10;
-        directionalLight.orthoRight = 10;
-        directionalLight.shadowOrthoScale = 0;
+        directionalLight.shadowEnabled = false;
 
-        const shadowGenerator = new ShadowGenerator(1024, directionalLight, true);
-        shadowGenerator.transparencyShadow = true;
-        shadowGenerator.usePercentageCloserFiltering = true;
-        shadowGenerator.forceBackFacesOnly = true;
-        shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
-        shadowGenerator.frustumEdgeFalloff = 0.1;
-
-        const ground2 = CreateGround("ground1", { width: 100, height: 100, subdivisions: 2, updatable: false }, scene);
-        const shadowOnlyMaterial = ground2.material = new ShadowOnlyMaterial("shadowOnly", scene);
-        shadowOnlyMaterial.activeLight = directionalLight;
-        shadowOnlyMaterial.alpha = 0;
-        ground2.receiveShadows = true;
-        ground2.parent = mmdRoot;
-
-        // create mmd runtime with physics
-        const mmdRuntime = new MmdRuntime(scene, new MmdPhysics(scene));
-        mmdRuntime.loggingEnabled = true;
+        // create mmd runtime (physics intentionally disabled for performance)
+        const wasmInstance = await GetMmdWasmInstance(new MmdWasmInstanceTypeMR());
+        const mmdRuntime = new MmdWasmRuntime(wasmInstance, scene);
         mmdRuntime.register(scene);
 
-        // set audio player
+        // set audio player (XR entry music)
         const audioPlayer = new StreamAudioPlayer(scene);
         audioPlayer.preservesPitch = false;
         // you need to get this file by yourself from https://youtu.be/y__uZETTuL8
         audioPlayer.source = "res/private_test/motion/melancholy_night/melancholy_night.mp3";
         mmdRuntime.setAudioPlayer(audioPlayer);
 
-        // play before loading. this will cause the audio to play first before all assets are loaded.
-        // playing the audio first can help ease the user's patience
         // create youtube like player control
         const mmdPlayerControl = new MmdPlayerControl(scene, mmdRuntime, audioPlayer);
         mmdPlayerControl.showPlayerControl();
@@ -156,32 +118,41 @@ export class SceneBuilder implements ISceneBuilder {
             engine.loadingUIText = "<br/><br/><br/><br/>" + loadingTexts.join("<br/><br/>");
         };
 
+        const materialBuilder = new MmdStandardMaterialBuilder();
+        materialBuilder.loadOutlineRenderingProperties = (): void => {};
+        await installWorldSpaceMmdSphereMap(engine.isWebGPU);
         const promises: Promise<any>[] = [];
 
         // for load .bvmd file, we use BvmdLoader. if you want to load .vmd or .vpd file, use VmdLoader / VpdLoader
         const bvmdLoader = new BvmdLoader(scene);
-        bvmdLoader.loggingEnabled = true;
 
         // you need to get this file by yourself from https://www.nicovideo.jp/watch/sm41164308
         promises.push(bvmdLoader.loadAsync("motion", "res/private_test/motion/melancholy_night/motion.bvmd",
             (event) => updateLoadingText(0, `Loading motion... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`))
         );
 
-        promises.push(SceneLoader.ImportMeshAsync(
-            undefined,
-            "res/private_test/model/",
-            "YYB Hatsune Miku_NT_1.0ver.bpmx",
-            scene,
-            (event) => updateLoadingText(1, `Loading model... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`)
-        ));
-
-        promises.push((async(): Promise<void> => {
-            updateLoadingText(2, "Loading physics engine...");
-            const havokInstance = await havokPhysics();
-            const havokPlugin = new HavokPlugin(true, havokInstance);
-            scene.enablePhysics(new Vector3(0, -98, 0), havokPlugin);
-            updateLoadingText(2, "Loading physics engine... Done");
-        })());
+        promises.push(
+            LoadAssetContainerAsync(
+                "res/private_test/model/YYB Hatsune Miku_NT_1.0ver.bpmx",
+                scene,
+                {
+                    onProgress: (event) => {
+                        updateLoadingText(
+                            1,
+                            `Loading model... ${event.loaded}/${event.total} (${Math.floor(event.loaded * 100 / event.total)}%)`
+                        );
+                    },
+                    pluginOptions: {
+                        mmdmodel: {
+                            materialBuilder
+                        }
+                    }
+                }
+            ).then((container) => {
+                container.addAllToScene();
+                return container;
+            })
+        );
 
         // wait for all promises. parallel loading is faster than sequential loading.
         const [mmdAnimation, { meshes: [modelMesh] }] = await Promise.all(promises);
@@ -198,24 +169,21 @@ export class SceneBuilder implements ISceneBuilder {
         {
             modelMesh.parent = mmdRoot;
 
-            for (const mesh of modelMesh.metadata.meshes) mesh.receiveShadows = true;
-            shadowGenerator.addShadowCaster(modelMesh);
-
             const mmdModel = mmdRuntime.createMmdModel(modelMesh, {
                 trimMetadata: false,
+                buildPhysics: false,
                 materialProxyConstructor: MmdStandardMaterialProxy
             });
             const modelAnimationHandle = mmdModel.createRuntimeAnimation(mmdAnimation);
             mmdModel.setRuntimeAnimation(modelAnimationHandle);
 
-            // Start the existing preview after both the model and camera tracks are bound.
-            void mmdRuntime.playAnimation();
-
             // make sure directional light follow the model
             const bodyBone = mmdModel.runtimeBones.find((bone) => bone.name === "センター");
             const boneWorldMatrix = new Matrix();
 
+            let frameCounter = 0;
             scene.onBeforeRenderObservable.add(() => {
+                if ((frameCounter += 1) & 1) return;
                 bodyBone!.getWorldMatrixToRef(boneWorldMatrix).multiplyToRef(modelMesh.getWorldMatrix(), boneWorldMatrix);
                 boneWorldMatrix.getTranslationToRef(directionalLight.position);
                 directionalLight.position.y -= 10;
@@ -229,10 +197,8 @@ export class SceneBuilder implements ISceneBuilder {
             const meshes = scene.meshes;
             for (let i = 0, len = meshes.length; i < len; ++i) {
                 const mesh = meshes[i];
-                mesh.freezeWorldMatrix();
                 mesh.doNotSyncBoundingInfo = true;
                 mesh.isPickable = false;
-                mesh.doNotSyncBoundingInfo = true;
                 mesh.alwaysSelectAsActiveMesh = true;
             }
 
@@ -243,60 +209,15 @@ export class SceneBuilder implements ISceneBuilder {
             scene.blockMaterialDirtyMechanism = true;
         });
 
-        // if you want ground collision, uncomment following lines.
-        // const groundRigidBody = new PhysicsBody(ground, PhysicsMotionType.STATIC, true, scene);
-        // groundRigidBody.shape = new PhysicsShapeBox(
-        //     new Vector3(0, -1, 0),
-        //     new Quaternion(),
-        //     new Vector3(100, 2, 100), scene);
+        scene.activeCameras = [mmdCamera];
 
-        const defaultPipeline = new DefaultRenderingPipeline("default", true, scene, [mmdCamera, camera]);
-        defaultPipeline.samples = 4;
-        defaultPipeline.bloomEnabled = true;
-        defaultPipeline.chromaticAberrationEnabled = true;
-        defaultPipeline.chromaticAberration.aberrationAmount = 1;
-        defaultPipeline.fxaaEnabled = true;
-        defaultPipeline.imageProcessingEnabled = true;
-        defaultPipeline.imageProcessing.toneMappingEnabled = true;
-        defaultPipeline.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
-        defaultPipeline.imageProcessing.vignetteWeight = 0.5;
-        defaultPipeline.imageProcessing.vignetteStretch = 0.5;
-        defaultPipeline.imageProcessing.vignetteColor = new Color4(0, 0, 0, 0);
-        defaultPipeline.imageProcessing.vignetteEnabled = true;
+        let immersiveArActive = false;
+        let activeView: "mmdCamera" | "camera" = "mmdCamera";
 
-        const ground = MeshBuilder.CreateGround("Ground", { width: 50, height: 50, subdivisions: 2, updatable: false }, scene);
-        ground.receiveShadows = true;
-        const groundMaterial = ground.material = new StandardMaterial("GroundMaterial", scene);
-        groundMaterial.diffuseColor = new Color3(0.7, 0.7, 0.7);
-        groundMaterial.specularPower = 128;
-        const groundReflectionTexture = groundMaterial.reflectionTexture = new MirrorTexture("MirrorTexture", 1024, scene, true);
-        groundReflectionTexture.mirrorPlane = Plane.FromPositionAndNormal(ground.position, ground.getFacetNormal(0).scale(-1));
-        groundReflectionTexture.renderList = [...modelMesh.metadata.meshes];
-        groundReflectionTexture.level = 0.45;
-        ground.parent = modelMesh;
+        let cameraToggleButton: HTMLButtonElement | null = null;
+        let sphereMapSelect: HTMLSelectElement | null = null;
 
-        const guiCamera = new ArcRotateCamera("GUICamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new Vector3(0, 20, 0), scene);
-        guiCamera.layerMask = 0x10000000;
-        scene.activeCameras = [mmdCamera, guiCamera];
-
-        // switch camera when double click
-        let lastClickTime = -Infinity;
-        canvas.onclick = (): void => {
-            const currentTime = performance.now();
-            if (500 < currentTime - lastClickTime) {
-                lastClickTime = currentTime;
-                return;
-            }
-            lastClickTime = -Infinity;
-
-            if (scene.activeCameras[0] === mmdCamera) scene.activeCameras = [camera, guiCamera];
-            else scene.activeCameras = [mmdCamera, guiCamera];
-        };
-
-        // if you want to use inspector, uncomment following line.
-        //Inspector.Show(scene, {});
-
-        // WebXR experience for AR (optional)
+        // WebXR experience for AR
         const immersiveArSupported =
             await WebXRSessionManager.IsSessionSupportedAsync("immersive-ar");
 
@@ -307,51 +228,61 @@ export class SceneBuilder implements ISceneBuilder {
                         sessionMode: "immersive-ar",
                         referenceSpaceType: "local-floor"
                     },
-                    floorMeshes: [ground]
+                    outputCanvasOptions: {
+                        canvasOptions: {
+                            framebufferScaleFactor: 1,
+                            antialias: true,
+                            alpha: true,
+                            depth: true,
+                            stencil: false
+                        }
+                    }
                 });
 
                 console.info("[WebXR] Immersive AR initialized.");
 
-                // const featuresManager =
-                //     webXrExperience.baseExperience.featuresManager;
+                const featuresManager =
+                    webXrExperience.baseExperience.featuresManager;
 
-                // Enable XR Layers only if required and supported.
-                // Keep this disabled for the initial WebGL performance baseline.
-                // featuresManager.enableFeature(WebXRFeatureName.LAYERS, "stable");
+                // Enable XR Layers (required for the WebGPU XR path).
+                featuresManager.enableFeature(WebXRFeatureName.LAYERS, "latest");
 
                 const sessionManager =
                     webXrExperience.baseExperience.sessionManager;
 
-                sessionManager.onXRFrameObservable.addOnce(() => {
-                    defaultPipeline.addCamera(
-                        webXrExperience.baseExperience.camera
-                    );
-                });
-
-                sessionManager.worldScalingFactor = 15;
+                sessionManager.worldScalingFactor = 12.5;
 
                 sessionManager.onXRSessionInit.add(() => {
+                    immersiveArActive = true;
+                    cameraToggleButton.hidden = true;
+                    setMmdSphereMapMode("world-anchored");
+
                     scene.clearColor = new Color4(0, 0, 0, 0);
-                    shadowOnlyMaterial.alpha = 0.2;
-                    groundMaterial.alpha = 0;
+
+                    if (sessionManager.isFixedFoveationSupported) {
+                        sessionManager.fixedFoveation = 1;
+                    }
+
+                    window.mmdProfiler = new PerformanceProfiler(scene);
+
                     mmdRuntime.playAnimation();
 
                     scene.activeCameras = [
-                        webXrExperience.baseExperience.camera,
-                        guiCamera
+                        webXrExperience.baseExperience.camera
                     ];
                 });
 
                 sessionManager.onXRSessionEnded.add(() => {
-                    scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
-                    shadowOnlyMaterial.alpha = 1;
-                    groundMaterial.alpha = 1;
 
-                    if (scene.activeCameras[0] === mmdCamera) {
-                        scene.activeCameras = [camera, guiCamera];
-                    } else {
-                        scene.activeCameras = [mmdCamera, guiCamera];
-                    }
+                    immersiveArActive = false;
+
+                    cameraToggleButton.hidden = false;
+
+                    scene.clearColor = new Color4(0.95, 0.95, 0.95, 1.0);
+                    window.mmdProfiler.exportCsv();
+                    window.mmdProfiler.dispose();
+
+                    scene.activeCameras = [mmdCamera];
                 });
 
             } catch (error) {
@@ -366,27 +297,90 @@ export class SceneBuilder implements ISceneBuilder {
             );
         }
 
-        console.info("[MMD material check]", {
-            materialCount: modelMesh.metadata.materials?.length,
-            meshCount: modelMesh.metadata.meshes?.length,
-            meshesWithMaterials: modelMesh.metadata.meshes
-                .filter(mesh => mesh.material !== null).length
+        // Desktop camera selector
+        cameraToggleButton = document.createElement("button");
+        cameraToggleButton.textContent = activeView;
+        cameraToggleButton.style.position = "fixed";
+        cameraToggleButton.style.top = "10px";
+        cameraToggleButton.style.right = "10px";
+        cameraToggleButton.style.zIndex = "1000";
+        cameraToggleButton.style.padding = "6px 10px";
+        cameraToggleButton.style.background = "rgba(0, 0, 0, 0.2)";
+        cameraToggleButton.style.color = "#fff";
+        cameraToggleButton.style.border = "1px solid rgba(255,255,255,0.6)";
+        cameraToggleButton.style.borderRadius = "4px";
+        cameraToggleButton.style.cursor = "pointer";
+
+        cameraToggleButton.addEventListener("click", () => {
+            if (immersiveArActive) return;
+
+            activeView =
+                activeView === "mmdCamera" ? "camera" : "mmdCamera";
+
+            scene.activeCameras = [
+                activeView === "mmdCamera" ? mmdCamera : camera
+            ];
+
+            cameraToggleButton!.textContent = activeView;
         });
 
-        // the text on the gui
-        const advancedTexture = AdvancedDynamicTexture.CreateFullscreenUI("UI", true, scene, Texture.BILINEAR_SAMPLINGMODE, true);
-        advancedTexture.layer!.layerMask = 0x10000000;
-        const textblock = new TextBlock();
-        textblock.widthInPixels = 500;
-        textblock.heightInPixels = 150;
-        textblock.left = 10;
-        textblock.text = "メランコリ・ナイト / melancholy night feat.初音ミク\n\nMusic & Lyrics by higma\nMotion by ほうき堂\nModel: YYB Hatsune Miku 10th by YYB";
-        textblock.fontSize = 20;
-        textblock.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        textblock.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        textblock.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        textblock.color = "black";
-        advancedTexture.addControl(textblock);
+        document.body.appendChild(cameraToggleButton);
+
+        // Sphere-map selector
+        sphereMapSelect = document.createElement("select");
+        sphereMapSelect.setAttribute("aria-label", "MMD sphere-map mode");
+
+        sphereMapSelect.style.position = "fixed";
+        sphereMapSelect.style.top = "48px";
+        sphereMapSelect.style.right = "10px";
+        sphereMapSelect.style.zIndex = "1000";
+        sphereMapSelect.style.padding = "6px 8px";
+        sphereMapSelect.style.background = "rgba(0, 0, 0, 0.75)";
+        sphereMapSelect.style.color = "#fff";
+        sphereMapSelect.style.border = "1px solid rgba(255,255,255,0.6)";
+        sphereMapSelect.style.borderRadius = "4px";
+        sphereMapSelect.style.cursor = "pointer";
+
+        const sphereMapOptions: {
+            value: MmdSphereMapMode;
+            label: string;
+        }[] = [
+            {
+                value: "camera-relative",
+                label: "Camera-relative"
+            },
+            {
+                value: "world-space normal mapping",
+                label: "Sticker when Miku is not moving"
+            },
+            {
+                value: "world-anchored",
+                label: "World-anchored"
+            }
+        ];
+
+        for (const optionData of sphereMapOptions) {
+            const option = document.createElement("option");
+            option.value = optionData.value;
+            option.textContent = optionData.label;
+            sphereMapSelect.appendChild(option);
+        }
+
+        sphereMapSelect.value = "world-space normal mapping";
+        setMmdSphereMapMode("world-space normal mapping");
+
+        sphereMapSelect.addEventListener("change", () => {
+            const selectedMode =
+                sphereMapSelect!.value as MmdSphereMapMode;
+
+            setMmdSphereMapMode(selectedMode);
+
+            console.info(
+                `[SphereMap] Mode changed to: ${selectedMode}`
+            );
+        });
+
+        document.body.appendChild(sphereMapSelect);
 
         return scene;
     }
